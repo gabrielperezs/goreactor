@@ -2,16 +2,8 @@ package sqs
 
 import (
 	"fmt"
-	"log"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"github.com/Jeffail/gabs"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gabrielperezs/goreactor/lib"
 )
 
@@ -20,17 +12,12 @@ const (
 	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
 )
 
-var connPool sync.Map
-
 type SQSPlugin struct {
 	r       *lib.Reactor
+	l       *sqsListen
 	URL     string
 	Region  string
 	Profile string
-
-	sess *session.Session
-	svc  *sqs.SQS
-
 	exiting uint32
 	done    chan struct{}
 }
@@ -53,8 +40,6 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 		}
 	}
 
-	log.Printf("%+v", p)
-
 	if p.URL == "" {
 		return nil, fmt.Errorf("SQS ERROR: URL not found or invalid")
 	}
@@ -63,59 +48,31 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 		return nil, fmt.Errorf("SQS ERROR: Region not found or invalid")
 	}
 
-	sess, err := session.NewSessionWithOptions(session.Options{
-		Profile: p.Profile,
-	})
-	if err != nil {
-		return nil, err
+	if nl, ok := connPool.Load(p.URL); !ok {
+		var err error
+		p.l, err = newSQSListen(r, c)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		p.l = nl.(*sqsListen)
 	}
 
-	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
-
-	go p.listen()
+	p.l.AddOrUpdate(r)
 
 	return p, nil
 }
 
-func (p *SQSPlugin) listen() {
-	defer func() {
-		p.done <- struct{}{}
-	}()
+func (p *SQSPlugin) Delete(msg *lib.Msg) error {
+	return p.l.Delete(msg)
+}
 
-	for {
-		if atomic.LoadUint32(&p.exiting) > 0 {
-			return
-		}
-
-		params := &sqs.ReceiveMessageInput{
-			QueueUrl:            aws.String(p.URL),
-			MaxNumberOfMessages: aws.Int64(maxNumberOfMessages),
-			WaitTimeSeconds:     aws.Int64(waitTimeSeconds),
-		}
-
-		resp, err := p.svc.ReceiveMessage(params)
-
-		if err != nil {
-			log.Printf("ERROR: AWS session on %s - %s", p.URL, err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-
-		for _, msg := range resp.Messages {
-			b := []byte(*msg.Body)
-			jsonParsed, err := gabs.ParseJSON(b)
-			if err == nil && jsonParsed.Exists("Message") {
-				p.r.Ch <- strings.Replace(jsonParsed.S("Message").String(), "\\\"", "\"", -1)
-				continue
-			}
-
-			p.r.Ch <- b
-		}
-	}
+// Put is not needed in SQS
+func (p *SQSPlugin) Put(msg *lib.Msg) error {
+	return nil
 }
 
 func (p *SQSPlugin) Exit() error {
-	atomic.AddUint32(&p.exiting, 1)
-	<-p.done
+	p.l.Exit()
 	return nil
 }

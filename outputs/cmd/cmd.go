@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -17,12 +18,14 @@ type Cmd struct {
 	cmd      string
 	args     []string
 	argsjson bool
+	cond     map[string]string
 }
 
 func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 
 	o := &Cmd{
-		r: r,
+		r:    r,
+		cond: make(map[string]string),
 	}
 
 	for k, v := range c {
@@ -35,43 +38,61 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			}
 		case "argsjson":
 			o.argsjson = v.(bool)
+		case "cond":
+			for _, v := range v.([]interface{}) {
+				for nk, nv := range v.(map[string]interface{}) {
+					o.cond[nk] = nv.(string)
+				}
+
+			}
 		}
 	}
 
 	return o, nil
 }
 
-func (o *Cmd) Run(i interface{}) {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+func (o *Cmd) Run(msg *lib.Msg) error {
 
 	var args []string
 
 	if o.argsjson {
-		var b []byte
-		switch i.(type) {
-		case []byte:
-			b = i.([]byte)
-		case string:
-			b = []byte(i.(string))
-		default:
-			log.Print("ERROR: invalid format")
-			return
+
+		for k, v := range o.cond {
+			if strings.HasPrefix(k, "$.") {
+				op, _ := jq.Parse(k[1:]) // create an Op
+				value, _ := op.Apply(msg.B)
+				nv := strings.Trim(string(value), "\"")
+
+				if nv != v {
+					//log.Printf("INVALID: %s |%+v| != |%+v|", k, nv, v)
+					return lib.InvalidMsgForPlugin
+				}
+			}
 		}
+
 		for _, parse := range o.args {
-			if strings.HasPrefix(parse, ".") {
-				op, _ := jq.Parse(parse) // create an Op
-				value, _ := op.Apply(b)
-				args = append(args, string(value))
+			if strings.Contains(parse, "$.") {
+				newParse := parse
+				for _, argValue := range strings.Split(parse, "$.") {
+					if argValue == "" {
+						continue
+					}
+					op, _ := jq.Parse("." + argValue) // create an Op
+					value, _ := op.Apply(msg.B)
+					newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
+				}
+				args = append(args, newParse)
 			} else {
 				args = append(args, parse)
 			}
 		}
 
-		log.Printf("O: %s", string(b))
 	} else {
 		args = o.args
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 
 	var c *exec.Cmd
 	if len(args) > 0 {
@@ -79,10 +100,16 @@ func (o *Cmd) Run(i interface{}) {
 	} else {
 		c = exec.CommandContext(ctx, o.cmd)
 	}
+
+	strcmd := fmt.Sprintf("%s %s", o.cmd, strings.Join(args, " "))
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stdout
+	log.Printf("CMD RUN: %s", strcmd)
 	if err := c.Run(); err != nil {
-		// This will fail after 100 milliseconds. The 5 second sleep
-		// will be interrupted.
+		// This will fail after timeout.
+		log.Printf("CMD ERROR: %s | %s", strcmd, err)
+		return err
 	}
+
+	return nil
 }

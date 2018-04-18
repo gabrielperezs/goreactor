@@ -40,11 +40,15 @@ func main() {
 	reload()
 }
 
-func reload() {
-
+func exit() {
 	for _, r := range conf.r {
 		log.Printf("Close", r)
 	}
+}
+
+func reload() {
+
+	exit()
 
 	var c *Config
 	if _, err := toml.DecodeFile(configFile, &c); err != nil {
@@ -59,7 +63,7 @@ func reload() {
 	for _, r := range conf.Reactor {
 		var err error
 
-		nr := lib.NewReactor()
+		nr := lib.NewReactor(r)
 		conf.r = append(conf.r, nr)
 
 		nr.I, err = inputs.Get(nr, r)
