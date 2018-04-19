@@ -54,6 +54,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 		if err != nil {
 			return nil, err
 		}
+		connPool.Store(p.URL, p.l)
 	} else {
 		p.l = nl.(*sqsListen)
 	}

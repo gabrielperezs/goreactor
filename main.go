@@ -64,8 +64,6 @@ func reload() {
 		var err error
 
 		nr := lib.NewReactor(r)
-		conf.r = append(conf.r, nr)
-
 		nr.I, err = inputs.Get(nr, r)
 		if err != nil {
 			log.Printf("ERROR: %s %s", r, err)
@@ -77,6 +75,9 @@ func reload() {
 			log.Printf("ERROR: %s %s", r, err)
 			continue
 		}
+
+		nr.Run()
+		conf.r = append(conf.r, nr)
 	}
 
 	<-chMain

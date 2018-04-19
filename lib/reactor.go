@@ -38,7 +38,6 @@ func NewReactor(icfg interface{}) *Reactor {
 		case "concurrent":
 			r.Concurrent = int(v.(int64))
 		case "concurrentsleep":
-			log.Printf("%#v", v)
 			var err error
 			r.ConcurrentSleep, err = time.ParseDuration(v.(string))
 			if err != nil {
@@ -47,16 +46,30 @@ func NewReactor(icfg interface{}) *Reactor {
 		}
 	}
 
+	if r.Concurrent <= 0 {
+		r.Concurrent = 1
+	}
+
 	log.Printf("D: %#v", r)
 
+	return r
+}
+
+func (r *Reactor) GetId() uint64 {
+	return r.id
+}
+
+func (r *Reactor) Run() {
 	for i := 0; i < r.Concurrent; i++ {
 		go r.listener()
 	}
-	return r
 }
 
 func (r *Reactor) listener() {
 	for msg := range r.Ch {
+
+		//log.Printf("R [%d]: GET: %s", r.id, string(msg.B))
+
 		if r.O == nil {
 			continue
 		}
@@ -75,6 +88,10 @@ func (r *Reactor) listener() {
 			}
 		}
 
-		time.Sleep(r.ConcurrentSleep)
+		// log.Printf("R [%d]: DONE (sleep %s)", r.id, r.ConcurrentSleep)
+
+		if r.ConcurrentSleep.Seconds() > 0 {
+			time.Sleep(r.ConcurrentSleep)
+		}
 	}
 }
