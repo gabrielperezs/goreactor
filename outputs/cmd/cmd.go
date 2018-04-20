@@ -3,14 +3,16 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/savaki/jq"
+)
+
+var (
+	maximumCmdTimeLive = 10 * time.Minute
 )
 
 type Cmd struct {
@@ -51,7 +53,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 	return o, nil
 }
 
-func (o *Cmd) Run(msg *lib.Msg) error {
+func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 
 	var args []string
 
@@ -64,7 +66,6 @@ func (o *Cmd) Run(msg *lib.Msg) error {
 				nv := strings.Trim(string(value), "\"")
 
 				if nv != v {
-					//log.Printf("INVALID: %s |%+v| != |%+v|", k, nv, v)
 					return lib.InvalidMsgForPlugin
 				}
 			}
@@ -91,7 +92,7 @@ func (o *Cmd) Run(msg *lib.Msg) error {
 		args = o.args
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
 	defer cancel()
 
 	var c *exec.Cmd
@@ -101,13 +102,12 @@ func (o *Cmd) Run(msg *lib.Msg) error {
 		c = exec.CommandContext(ctx, o.cmd)
 	}
 
-	strcmd := fmt.Sprintf("%s %s", o.cmd, strings.Join(args, " "))
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stdout
-	log.Printf("CMD RUN: %s", strcmd)
+	c.Stdout = rl
+	c.Stderr = rl
+	rl.WriteStrings(fmt.Sprintf("RUN: %s %s", o.cmd, strings.Join(args, " ")))
 	if err := c.Run(); err != nil {
 		// This will fail after timeout.
-		log.Printf("CMD ERROR: %s | %s", strcmd, err)
+		rl.WriteStrings(fmt.Sprintf("ERROR: %s", err))
 		return err
 	}
 

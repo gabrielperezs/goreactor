@@ -6,5 +6,5 @@ type Input interface {
 }
 
 type Output interface {
-	Run(a *Msg) error
+	Run(rl ReactorLog, a *Msg) error
 }

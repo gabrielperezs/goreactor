@@ -76,7 +76,7 @@ func reload() {
 			continue
 		}
 
-		nr.Run()
+		nr.Start()
 		conf.r = append(conf.r, nr)
 	}
 
