@@ -13,23 +13,23 @@ var (
 )
 
 type Reactor struct {
-	mu              sync.Mutex
-	I               Input
-	O               Output
-	Ch              chan *Msg
-	id              uint64
-	tid             uint64
-	Concurrent      int
-	ConcurrentSleep time.Duration
-	running         int64
-	nextDeadline    time.Time
+	mu           sync.Mutex
+	I            Input
+	O            Output
+	Ch           chan *Msg
+	id           uint64
+	tid          uint64
+	Concurrent   int
+	Delay        time.Duration
+	running      int64
+	nextDeadline time.Time
 }
 
 func NewReactor(icfg interface{}) *Reactor {
 	r := &Reactor{
-		id:              atomic.AddUint64(&counters, 1),
-		Concurrent:      0,
-		ConcurrentSleep: 0,
+		id:         atomic.AddUint64(&counters, 1),
+		Concurrent: 0,
+		Delay:      0,
 	}
 
 	cfg, ok := icfg.(map[string]interface{})
@@ -41,11 +41,11 @@ func NewReactor(icfg interface{}) *Reactor {
 		switch strings.ToLower(k) {
 		case "concurrent":
 			r.Concurrent = int(v.(int64))
-		case "concurrentsleep":
+		case "delay":
 			var err error
-			r.ConcurrentSleep, err = time.ParseDuration(v.(string))
+			r.Delay, err = time.ParseDuration(v.(string))
 			if err != nil {
-				r.ConcurrentSleep = 0
+				r.Delay = 0
 			}
 		}
 	}
@@ -89,10 +89,10 @@ func (r *Reactor) listener() {
 func (r *Reactor) deadline() {
 	r.mu.Lock()
 	n := time.Now()
-	if r.nextDeadline.Add(r.ConcurrentSleep).Before(n) {
+	if r.nextDeadline.Add(r.Delay).Before(n) {
 		r.nextDeadline = n
 	} else {
-		r.nextDeadline = r.nextDeadline.Add(r.ConcurrentSleep)
+		r.nextDeadline = r.nextDeadline.Add(r.Delay)
 	}
 	sleep := r.nextDeadline.Sub(n)
 	r.mu.Unlock()
