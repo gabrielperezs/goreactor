@@ -1,0 +1,9 @@
+language: go
+
+go:
+  - "1.9"
+  - "1.10"
+
+script:
+  # build test for supported platforms
+  - GOOS=linux go build
