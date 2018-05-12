@@ -69,9 +69,10 @@ func (r *Reactor) Start() {
 	}
 }
 
-func (r *Reactor) Write(b []byte) (int, error) {
-	log.Printf("R [%d]: OUTPUT: %s", r.id, string(b))
-	return len(b), nil
+func (r *Reactor) Exit() {
+	r.I.Exit()
+	r.O.Exit()
+	close(r.Ch)
 }
 
 func (r *Reactor) listener() {

@@ -117,3 +117,7 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 
 	return nil
 }
+
+func (*Cmd) Exit() {
+
+}

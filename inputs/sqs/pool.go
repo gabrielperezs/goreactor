@@ -151,6 +151,7 @@ func (p *sqsListen) Exit() error {
 	}
 	atomic.AddUint32(&p.exiting, 1)
 	<-p.done
+	log.Printf("SQS EXIT %s", p.URL)
 	return nil
 }
 

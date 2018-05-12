@@ -73,7 +73,8 @@ func (p *SQSPlugin) Put(msg *lib.Msg) error {
 	return nil
 }
 
-func (p *SQSPlugin) Exit() error {
+func (p *SQSPlugin) Exit() {
 	p.l.Exit()
-	return nil
+	connPool.Delete(p.URL)
+	return
 }

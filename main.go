@@ -48,7 +48,19 @@ func main() {
 	<-chMain
 }
 
+func exit() {
+	for _, r := range conf.r {
+		r.Exit()
+	}
+	chMain <- true
+}
+
 func reload() {
+
+	for _, r := range conf.r {
+		r.Exit()
+	}
+	conf.r = nil
 
 	var c *Config
 	if _, err := toml.DecodeFile(configFile, &c); err != nil {
@@ -95,6 +107,7 @@ func sing() {
 			reload()
 		default:
 			log.Printf("Closing...")
+			exit()
 			chMain <- true
 		}
 	}
