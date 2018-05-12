@@ -48,6 +48,8 @@ Please __put attention__ in the "cond" parameter (is a condition, like an "if").
 
 
 ```toml
+logfile = "/var/log/goreactor.log"
+
 [[reactor]]
 concurrent = 10
 delay = "5s"
