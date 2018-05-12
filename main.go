@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
 	"syscall"
 
@@ -26,30 +27,28 @@ type Config struct {
 var (
 	conf       Config
 	configFile string
+	debug      bool
 	mu         sync.Mutex
-	chSign     = make(chan os.Signal, 10)
 	chMain     = make(chan bool)
 )
 
 func main() {
 	flag.StringVar(&configFile, "config", "config.conf", "Configuration file")
+	flag.BoolVar(&debug, "debug", false, "Debug mode")
 	flag.Parse()
 
+	if !debug {
+		log.SetFlags(0)
+	}
 	log.Printf("Starting v%s", version)
 
 	go sing()
 	reload()
-}
 
-func exit() {
-	for _, r := range conf.r {
-		log.Printf("Close", r)
-	}
+	<-chMain
 }
 
 func reload() {
-
-	exit()
 
 	var c *Config
 	if _, err := toml.DecodeFile(configFile, &c); err != nil {
@@ -82,14 +81,15 @@ func reload() {
 		nr.Start()
 		conf.r = append(conf.r, nr)
 	}
-
-	<-chMain
-	log.Printf("Close")
 }
 
 func sing() {
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
 	for {
-		switch <-chSign {
+		switch <-sigs {
 		case syscall.SIGHUP:
 			log.Printf("Reloading..")
 			reload()
