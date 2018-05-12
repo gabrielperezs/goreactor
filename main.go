@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	version = "0.1"
+	version = "0.2"
 )
 
 type Config struct {
+	LogFile string
 	Reactor []interface{}
 	r       []*lib.Reactor
 }
@@ -58,6 +59,8 @@ func reload() {
 	mu.Lock()
 	conf = *c
 	mu.Unlock()
+
+	lib.LogReload(conf.LogFile)
 
 	//var err error
 	for _, r := range conf.Reactor {

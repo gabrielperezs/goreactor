@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 	"time"
@@ -104,7 +105,10 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 
 	c.Stdout = rl
 	c.Stderr = rl
-	rl.WriteStrings(fmt.Sprintf("RUN: %s %s", o.cmd, strings.Join(args, " ")))
+
+	runlog := fmt.Sprintf("RUN: %s %s", o.cmd, strings.Join(args, " "))
+	log.Println(runlog)
+	rl.WriteStrings(runlog)
 	if err := c.Run(); err != nil {
 		// This will fail after timeout.
 		rl.WriteStrings(fmt.Sprintf("ERROR: %s", err))

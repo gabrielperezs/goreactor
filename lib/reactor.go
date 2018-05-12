@@ -56,8 +56,6 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	r.Ch = make(chan *Msg, r.Concurrent)
 
-	log.Printf("D: %#v", r)
-
 	return r
 }
 
@@ -126,26 +124,4 @@ func (r *Reactor) run(msg *Msg) {
 			log.Printf("R [%d]: ERROR DELETE: %s", r.id, string(msg.B))
 		}
 	}
-}
-
-func NewReactorLog(rid uint64, tid uint64) ReactorLog {
-	return ReactorLog{
-		rid: rid,
-		tid: tid,
-	}
-}
-
-type ReactorLog struct {
-	rid uint64
-	tid uint64
-}
-
-func (rl ReactorLog) Write(b []byte) (int, error) {
-	log.Printf("RID %d RTID %08d OUTPUT | %s", rl.rid, rl.tid, string(b))
-	return len(b), nil
-}
-
-func (rl ReactorLog) WriteStrings(s string) (int, error) {
-	log.Printf("RID %d RTID %08d OUTPUT | %s", rl.rid, rl.tid, s)
-	return len(s), nil
 }

@@ -59,7 +59,7 @@ output = "cmd"
 cond = [ 
     { "$.Event" = "autoscaling:EC2_INSTANCE_LAUNCH" }
 ]
-cmd = "/usr/local/bin/do-something-with-the instance"
+cmd = "/usr/local/bin/do-something-with-the-instance"
 args = ["asg=$.AutoScalingGroupName", "instance_id=$.EC2InstanceId"]
 argsjson = true
 ```
