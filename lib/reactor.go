@@ -21,8 +21,9 @@ type Reactor struct {
 	tid          uint64
 	Concurrent   int
 	Delay        time.Duration
-	running      int64
+	listeners    int64
 	nextDeadline time.Time
+	done         chan bool
 }
 
 func NewReactor(icfg interface{}) *Reactor {
@@ -30,11 +31,26 @@ func NewReactor(icfg interface{}) *Reactor {
 		id:         atomic.AddUint64(&counters, 1),
 		Concurrent: 0,
 		Delay:      0,
+		done:       make(chan bool),
 	}
+
+	r.Reload(icfg)
+
+	r.Ch = make(chan *Msg, r.Concurrent)
+
+	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
+
+	return r
+}
+
+func (r *Reactor) Reload(icfg interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	cfg, ok := icfg.(map[string]interface{})
 	if !ok {
-		log.Panicf("ERROR NewReactor config")
+		log.Printf("ERROR Reactor config")
+		return
 	}
 
 	for k, v := range cfg {
@@ -53,10 +69,6 @@ func NewReactor(icfg interface{}) *Reactor {
 	if r.Concurrent <= 0 {
 		r.Concurrent = 1
 	}
-
-	r.Ch = make(chan *Msg, r.Concurrent)
-
-	return r
 }
 
 func (r *Reactor) GetId() uint64 {
@@ -71,17 +83,20 @@ func (r *Reactor) Start() {
 
 func (r *Reactor) Exit() {
 	r.I.Exit()
-	r.O.Exit()
 	close(r.Ch)
+	r.O.Exit()
 }
 
 func (r *Reactor) listener() {
-	for msg := range r.Ch {
-		if r.O == nil {
-			continue
-		}
+	defer func() {
+		r.done <- true
+		log.Printf("Done listener reactor")
+	}()
 
-		r.run(msg)
+	for msg := range r.Ch {
+		if r.O != nil {
+			r.run(msg)
+		}
 	}
 }
 
@@ -105,11 +120,6 @@ func (r *Reactor) deadline() {
 
 func (r *Reactor) run(msg *Msg) {
 	r.deadline()
-
-	atomic.AddInt64(&r.running, 1)
-	defer func() {
-		atomic.AddInt64(&r.running, -1)
-	}()
 
 	rl := NewReactorLog(r.id, atomic.AddUint64(&r.tid, 1))
 	if err := r.O.Run(rl, msg); err != nil {

@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	version = "0.2"
+	version = "0.3"
 )
 
 type Config struct {
 	LogFile string
 	Reactor []interface{}
-	r       []*lib.Reactor
 }
 
 var (
+	running    []*lib.Reactor
 	conf       Config
 	configFile string
 	debug      bool
@@ -44,24 +44,47 @@ func main() {
 
 	go sing()
 	reload()
+	start()
 
 	<-chMain
 }
 
+func start() {
+	for _, r := range conf.Reactor {
+		nr := lib.NewReactor(r)
+
+		var err error
+		nr.I, err = inputs.Get(nr, r)
+		if err != nil {
+			log.Printf("ERROR: %s %s", r, err)
+		}
+
+		nr.O, err = outputs.Get(nr, r)
+		if err != nil {
+			log.Printf("ERROR: %s %s", r, err)
+		}
+
+		nr.Start()
+		running = append(running, nr)
+	}
+}
+
 func exit() {
-	for _, r := range conf.r {
+	for _, r := range running {
 		r.Exit()
 	}
 	chMain <- true
 }
 
-func reload() {
-
-	for _, r := range conf.r {
+func restart() {
+	for _, r := range running {
 		r.Exit()
 	}
-	conf.r = nil
+	running = nil
+	start()
+}
 
+func reload() {
 	var c *Config
 	if _, err := toml.DecodeFile(configFile, &c); err != nil {
 		log.Printf("ERROR reading config file %s: %s", configFile, err)
@@ -72,41 +95,24 @@ func reload() {
 	mu.Unlock()
 
 	lib.LogReload(conf.LogFile)
-
-	//var err error
-	for _, r := range conf.Reactor {
-		var err error
-
-		nr := lib.NewReactor(r)
-		nr.I, err = inputs.Get(nr, r)
-		if err != nil {
-			log.Printf("ERROR: %s %s", r, err)
-			continue
-		}
-
-		nr.O, err = outputs.Get(nr, r)
-		if err != nil {
-			log.Printf("ERROR: %s %s", r, err)
-			continue
-		}
-
-		nr.Start()
-		conf.r = append(conf.r, nr)
-	}
 }
 
 func sing() {
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1)
 
 	for {
 		switch <-sigs {
 		case syscall.SIGHUP:
-			log.Printf("Reloading..")
+			log.Printf("Rotate logs")
 			reload()
+		case syscall.SIGUSR1:
+			log.Printf("Full restart")
+			reload()
+			restart()
 		default:
-			log.Printf("Closing...")
+			log.Printf("Exiting...")
 			exit()
 			chMain <- true
 		}
