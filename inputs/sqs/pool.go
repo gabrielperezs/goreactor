@@ -102,68 +102,40 @@ func (p *sqsListen) listen() {
 		}
 
 		for _, msg := range resp.Messages {
+			// Flag to delete the message if don't match with at least one reactor condition
 			atLeastOneValid := false
-			b := []byte(*msg.Body)
-			jsonParsed, err := gabs.ParseJSON(b)
+
+			m := &lib.Msg{
+				SQS: p.svc,
+				B:   []byte(*msg.Body),
+				M: &sqs.DeleteMessageBatchRequestEntry{
+					Id:            msg.MessageId,
+					ReceiptHandle: msg.ReceiptHandle,
+				},
+				URL: aws.String(p.URL),
+			}
+
+			jsonParsed, err := gabs.ParseJSON(m.B)
 			if err == nil && jsonParsed.Exists("Message") {
 				s := strings.Replace(jsonParsed.S("Message").String(), "\\\"", "\"", -1)
-				if strings.HasPrefix(s, "\"") {
-					s = s[1:]
-				}
-				if strings.HasSuffix(s, "\"") {
-					s = s[:len(s)]
-				}
-
-				p.broadcastCh.Range(func(k, v interface{}) bool {
-					m := &lib.Msg{
-						SQS: p.svc,
-						B:   []byte(s),
-						M: &sqs.DeleteMessageBatchRequestEntry{
-							Id:            msg.MessageId,
-							ReceiptHandle: msg.ReceiptHandle,
-						},
-						URL: aws.String(p.URL),
-					}
-
-					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
-						return true
-					}
-					atLeastOneValid = true
-					k.(*lib.Reactor).Ch <- m
-					return true
-				})
-			} else {
-				p.broadcastCh.Range(func(k, v interface{}) bool {
-					m := &lib.Msg{
-						SQS: p.svc,
-						B:   b,
-						M: &sqs.DeleteMessageBatchRequestEntry{
-							Id:            msg.MessageId,
-							ReceiptHandle: msg.ReceiptHandle,
-						},
-						URL: aws.String(p.URL),
-					}
-
-					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
-						return true
-					}
-					atLeastOneValid = true
-					k.(*lib.Reactor).Ch <- m
-					return true
-				})
+				s = strings.TrimPrefix(s, "\"")
+				s = strings.TrimSuffix(s, "\"")
+				m.B = []byte(s)
 			}
+
+			p.broadcastCh.Range(func(k, v interface{}) bool {
+				if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
+					return true
+				}
+				atLeastOneValid = true
+				k.(*lib.Reactor).Ch <- m
+				return true
+			})
 
 			// We delete this message if is invalid for all the reactors
 			if !atLeastOneValid {
 				lib.LogWrite([]byte(fmt.Sprintf("Invalid message, deleted: %s", *msg.Body)))
-				p.Delete(&lib.Msg{
-					SQS: p.svc,
-					M: &sqs.DeleteMessageBatchRequestEntry{
-						Id:            msg.MessageId,
-						ReceiptHandle: msg.ReceiptHandle,
-					},
-					URL: aws.String(p.URL),
-				})
+				p.Delete(m)
 			}
 		}
 	}
@@ -183,7 +155,6 @@ func (p *sqsListen) Delete(msg *lib.Msg) (err error) {
 	if msg.SQS == nil || msg == nil {
 		return
 	}
-
 	if _, err = msg.SQS.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      msg.URL,
 		ReceiptHandle: msg.M.ReceiptHandle,
