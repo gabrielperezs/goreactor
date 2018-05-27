@@ -71,6 +71,10 @@ func (r *Reactor) Reload(icfg interface{}) {
 	}
 }
 
+func (r *Reactor) MatchConditions(msg *Msg) error {
+	return r.O.MatchConditions(msg)
+}
+
 func (r *Reactor) GetId() uint64 {
 	return r.id
 }

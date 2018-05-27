@@ -54,24 +54,30 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 	return o, nil
 }
 
+func (o *Cmd) MatchConditions(msg *lib.Msg) error {
+	if !o.argsjson {
+		return nil
+	}
+
+	for k, v := range o.cond {
+		if strings.HasPrefix(k, "$.") {
+			op, _ := jq.Parse(k[1:]) // create an Op
+			value, _ := op.Apply(msg.B)
+			nv := strings.Trim(string(value), "\"")
+
+			if nv != v {
+				return lib.InvalidMsgForPlugin
+			}
+		}
+	}
+	return nil
+}
+
 func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 
 	var args []string
 
 	if o.argsjson {
-
-		for k, v := range o.cond {
-			if strings.HasPrefix(k, "$.") {
-				op, _ := jq.Parse(k[1:]) // create an Op
-				value, _ := op.Apply(msg.B)
-				nv := strings.Trim(string(value), "\"")
-
-				if nv != v {
-					return lib.InvalidMsgForPlugin
-				}
-			}
-		}
-
 		for _, parse := range o.args {
 			if strings.Contains(parse, "$.") {
 				newParse := parse
@@ -88,7 +94,6 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 				args = append(args, parse)
 			}
 		}
-
 	} else {
 		args = o.args
 	}

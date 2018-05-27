@@ -102,6 +102,7 @@ func (p *sqsListen) listen() {
 		}
 
 		for _, msg := range resp.Messages {
+			almostOneValid := false
 			b := []byte(*msg.Body)
 			jsonParsed, err := gabs.ParseJSON(b)
 			if err == nil && jsonParsed.Exists("Message") {
@@ -114,7 +115,7 @@ func (p *sqsListen) listen() {
 				}
 
 				p.broadcastCh.Range(func(k, v interface{}) bool {
-					k.(*lib.Reactor).Ch <- &lib.Msg{
+					m := &lib.Msg{
 						SQS: p.svc,
 						B:   []byte(s),
 						M: &sqs.DeleteMessageBatchRequestEntry{
@@ -123,24 +124,45 @@ func (p *sqsListen) listen() {
 						},
 						URL: aws.String(p.URL),
 					}
+
+					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
+						return false
+					}
+					almostOneValid = true
+					k.(*lib.Reactor).Ch <- m
 					return true
 				})
-				continue
+			} else {
+				p.broadcastCh.Range(func(k, v interface{}) bool {
+					m := &lib.Msg{
+						SQS: p.svc,
+						B:   b,
+						M: &sqs.DeleteMessageBatchRequestEntry{
+							Id:            msg.MessageId,
+							ReceiptHandle: msg.ReceiptHandle,
+						},
+						URL: aws.String(p.URL),
+					}
+
+					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
+						return false
+					}
+					almostOneValid = true
+					k.(*lib.Reactor).Ch <- m
+					return true
+				})
 			}
 
-			//log.Printf("SQS broadcast2: %s", string(b))
-			p.broadcastCh.Range(func(k, v interface{}) bool {
-				k.(*lib.Reactor).Ch <- &lib.Msg{
-					SQS: p.svc,
-					B:   b,
+			// We delete this message if is invalid for all the reactors
+			if !almostOneValid {
+				p.Delete(&lib.Msg{
 					M: &sqs.DeleteMessageBatchRequestEntry{
 						Id:            msg.MessageId,
 						ReceiptHandle: msg.ReceiptHandle,
 					},
 					URL: aws.String(p.URL),
-				}
-				return true
-			})
+				})
+			}
 		}
 	}
 }

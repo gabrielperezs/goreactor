@@ -7,6 +7,7 @@ type Input interface {
 }
 
 type Output interface {
+	MatchConditions(a *Msg) error
 	Run(rl ReactorLog, a *Msg) error
 	Exit()
 }
