@@ -126,7 +126,7 @@ func (p *sqsListen) listen() {
 					}
 
 					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
-						return false
+						return true
 					}
 					atLeastOneValid = true
 					k.(*lib.Reactor).Ch <- m
@@ -145,7 +145,7 @@ func (p *sqsListen) listen() {
 					}
 
 					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
-						return false
+						return true
 					}
 					atLeastOneValid = true
 					k.(*lib.Reactor).Ch <- m
