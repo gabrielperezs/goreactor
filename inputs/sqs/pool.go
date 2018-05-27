@@ -102,7 +102,7 @@ func (p *sqsListen) listen() {
 		}
 
 		for _, msg := range resp.Messages {
-			almostOneValid := false
+			atLeastOneValid := false
 			b := []byte(*msg.Body)
 			jsonParsed, err := gabs.ParseJSON(b)
 			if err == nil && jsonParsed.Exists("Message") {
@@ -128,7 +128,7 @@ func (p *sqsListen) listen() {
 					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
 						return false
 					}
-					almostOneValid = true
+					atLeastOneValid = true
 					k.(*lib.Reactor).Ch <- m
 					return true
 				})
@@ -147,14 +147,14 @@ func (p *sqsListen) listen() {
 					if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
 						return false
 					}
-					almostOneValid = true
+					atLeastOneValid = true
 					k.(*lib.Reactor).Ch <- m
 					return true
 				})
 			}
 
 			// We delete this message if is invalid for all the reactors
-			if !almostOneValid {
+			if !atLeastOneValid {
 				lib.LogWrite([]byte(fmt.Sprintf("Invalid message, deleted: %s", *msg.Body)))
 				p.Delete(&lib.Msg{
 					SQS: p.svc,
