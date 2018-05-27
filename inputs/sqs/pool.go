@@ -155,7 +155,9 @@ func (p *sqsListen) listen() {
 
 			// We delete this message if is invalid for all the reactors
 			if !almostOneValid {
+				lib.LogWrite([]byte(fmt.Sprintf("Invalid message, deleted: %s", *msg.Body)))
 				p.Delete(&lib.Msg{
+					SQS: p.svc,
 					M: &sqs.DeleteMessageBatchRequestEntry{
 						Id:            msg.MessageId,
 						ReceiptHandle: msg.ReceiptHandle,
@@ -178,6 +180,10 @@ func (p *sqsListen) Exit() error {
 }
 
 func (p *sqsListen) Delete(msg *lib.Msg) (err error) {
+	if msg.SQS == nil || msg == nil {
+		return
+	}
+
 	if _, err = msg.SQS.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      msg.URL,
 		ReceiptHandle: msg.M.ReceiptHandle,

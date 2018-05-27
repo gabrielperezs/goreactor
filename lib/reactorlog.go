@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 var (
@@ -78,6 +79,14 @@ func LogRotate() {
 	logRotateCh <- true
 }
 
+func LogWrite(b []byte) {
+	l := []byte(time.Now().UTC().String())
+	l = append(l, []byte(" ")...)
+	l = append(l, b...)
+	l = append(l, []byte("\n")...)
+	logCh <- l
+}
+
 func NewReactorLog(rid uint64, tid uint64) ReactorLog {
 	r := ReactorLog{
 		rid:    rid,
@@ -103,10 +112,14 @@ func (rl ReactorLog) Write(b []byte) (int, error) {
 			continue
 		}
 
+		n := []byte(time.Now().UTC().String())
+		n = append(n, []byte(" ")...)
+		n = append(n, rl.prefix...)
+
 		if bytes.HasSuffix(l, []byte("\n")) {
-			logCh <- append(rl.prefix, l...)
+			logCh <- append(n, l...)
 		} else {
-			logCh <- append(append(rl.prefix, l...), []byte("\n")...)
+			logCh <- append(append(n, l...), []byte("\n")...)
 		}
 	}
 	return len(b), nil
