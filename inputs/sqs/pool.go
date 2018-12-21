@@ -105,7 +105,7 @@ func (p *sqsListen) listen() {
 			// Flag to delete the message if don't match with at least one reactor condition
 			atLeastOneValid := false
 
-			m := &lib.Msg{
+			m := &Msg{
 				SQS: p.svc,
 				B:   []byte(*msg.Body),
 				M: &sqs.DeleteMessageBatchRequestEntry{
@@ -151,7 +151,13 @@ func (p *sqsListen) Exit() error {
 	return nil
 }
 
-func (p *sqsListen) Delete(msg *lib.Msg) (err error) {
+func (p *sqsListen) Delete(v lib.Msg) (err error) {
+	msg, ok := v.(*Msg)
+	if !ok {
+		log.Printf("ERROR SQS Delete: invalid message %+v", v)
+		return
+	}
+
 	if msg.SQS == nil || msg == nil {
 		return
 	}

@@ -12,6 +12,7 @@ const (
 	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
 )
 
+// SQSPlugin struct for SQS Input plugin
 type SQSPlugin struct {
 	r       *lib.Reactor
 	l       *sqsListen
@@ -22,6 +23,7 @@ type SQSPlugin struct {
 	done    chan struct{}
 }
 
+// NewOrGet create a new SQS plugin and relate it with the Reactor
 func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 
 	p := &SQSPlugin{
@@ -64,15 +66,17 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 	return p, nil
 }
 
-func (p *SQSPlugin) Delete(msg *lib.Msg) error {
-	return p.l.Delete(msg)
+// Delete message from the SQS
+func (p *SQSPlugin) Delete(v lib.Msg) error {
+	return p.l.Delete(v)
 }
 
 // Put is not needed in SQS
-func (p *SQSPlugin) Put(msg *lib.Msg) error {
+func (p *SQSPlugin) Put(v lib.Msg) error {
 	return nil
 }
 
+// Exit stops the pooling from SQS
 func (p *SQSPlugin) Exit() {
 	p.l.Exit()
 	connPool.Delete(p.URL)

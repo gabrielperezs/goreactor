@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -10,13 +11,18 @@ import (
 
 var (
 	counters uint64
+
+	// ErrInvalidMsgForPlugin error
+	ErrInvalidMsgForPlugin = fmt.Errorf("This message is not valid for this output")
 )
 
+// Reactor is the struct where we keep the relation betwean Input plugins
+// and the Output plugins. Also contains the configuration for concurrency...
 type Reactor struct {
 	mu           sync.Mutex
 	I            Input
 	O            Output
-	Ch           chan *Msg
+	Ch           chan Msg
 	id           uint64
 	tid          uint64
 	Concurrent   int
@@ -26,6 +32,7 @@ type Reactor struct {
 	done         chan bool
 }
 
+// NewReactor will create a reactor with the configuration
 func NewReactor(icfg interface{}) *Reactor {
 	r := &Reactor{
 		id:         atomic.AddUint64(&counters, 1),
@@ -36,13 +43,14 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	r.Reload(icfg)
 
-	r.Ch = make(chan *Msg, r.Concurrent)
+	r.Ch = make(chan Msg, r.Concurrent)
 
 	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
 
 	return r
 }
 
+// Reload will replace the old configuration with new parameters
 func (r *Reactor) Reload(icfg interface{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -71,20 +79,26 @@ func (r *Reactor) Reload(icfg interface{}) {
 	}
 }
 
-func (r *Reactor) MatchConditions(msg *Msg) error {
+// MatchConditions will call to the MatchConditions of the Output
+func (r *Reactor) MatchConditions(msg Msg) error {
 	return r.O.MatchConditions(msg)
 }
 
-func (r *Reactor) GetId() uint64 {
+// GetID to obtain the ID of the reactor
+func (r *Reactor) GetID() uint64 {
 	return r.id
 }
 
+// Start will run the current reactor in a go routine based on the
+// concurrency configuration
 func (r *Reactor) Start() {
 	for i := 0; i < r.Concurrent; i++ {
 		go r.listener()
 	}
 }
 
+// Exit will close the interaction betwean the Input plugin and the Output
+// plugin, and finishing the reactor
 func (r *Reactor) Exit() {
 	r.I.Exit()
 	close(r.Ch)
@@ -122,21 +136,21 @@ func (r *Reactor) deadline() {
 	time.Sleep(sleep)
 }
 
-func (r *Reactor) run(msg *Msg) {
+func (r *Reactor) run(msg Msg) {
 	r.deadline()
 
 	rl := NewReactorLog(r.id, atomic.AddUint64(&r.tid, 1))
 	if err := r.O.Run(rl, msg); err != nil {
 		switch err {
-		case InvalidMsgForPlugin:
+		case ErrInvalidMsgForPlugin:
 		default:
 			if err := r.I.Put(msg); err != nil {
-				log.Printf("R [%d]: ERROR PUT: %s", r.id, string(msg.B))
+				log.Printf("R [%d]: ERROR PUT: %s", r.id, string(msg.Body()))
 			}
 		}
 	} else {
 		if err := r.I.Delete(msg); err != nil {
-			log.Printf("R [%d]: ERROR DELETE: %s", r.id, string(msg.B))
+			log.Printf("R [%d]: ERROR DELETE: %s", r.id, string(msg.Body()))
 		}
 	}
 }

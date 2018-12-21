@@ -16,6 +16,8 @@ var (
 	maximumCmdTimeLive = 10 * time.Minute
 )
 
+// Cmd is the command struct that will be executed after recive the order
+// from the input plugins
 type Cmd struct {
 	r        *lib.Reactor
 	cmd      string
@@ -24,6 +26,8 @@ type Cmd struct {
 	cond     map[string]string
 }
 
+// NewOrGet create the command struct and fill the parameters needed from the
+// config data.
 func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 
 	o := &Cmd{
@@ -54,7 +58,9 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 	return o, nil
 }
 
-func (o *Cmd) MatchConditions(msg *lib.Msg) error {
+// MatchConditions is a filter to replace the variables (usually commands arguments)
+// that are comming from the Input message
+func (o *Cmd) MatchConditions(msg lib.Msg) error {
 	if !o.argsjson {
 		return nil
 	}
@@ -62,18 +68,21 @@ func (o *Cmd) MatchConditions(msg *lib.Msg) error {
 	for k, v := range o.cond {
 		if strings.HasPrefix(k, "$.") {
 			op, _ := jq.Parse(k[1:]) // create an Op
-			value, _ := op.Apply(msg.B)
+			value, _ := op.Apply(msg.Body())
 			nv := strings.Trim(string(value), "\"")
 
 			if nv != v {
-				return lib.InvalidMsgForPlugin
+				return lib.ErrInvalidMsgForPlugin
 			}
 		}
 	}
 	return nil
 }
 
-func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
+// Run will execute the binary command that was defined in the config.
+// In this function we also define the OUT and ERR data destination of
+// the command.
+func (o *Cmd) Run(rl lib.ReactorLog, msg lib.Msg) error {
 
 	var args []string
 
@@ -86,7 +95,7 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 						continue
 					}
 					op, _ := jq.Parse("." + argValue) // create an Op
-					value, _ := op.Apply(msg.B)
+					value, _ := op.Apply(msg.Body())
 					newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
 				}
 				args = append(args, newParse)
@@ -123,6 +132,7 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg *lib.Msg) error {
 	return nil
 }
 
+// Exit will finish the command // TODO
 func (o *Cmd) Exit() {
 
 }

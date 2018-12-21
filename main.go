@@ -18,6 +18,8 @@ const (
 	version = "0.4"
 )
 
+// Config contains all the configuration parameters needed
+// by all the plugins and filled with the TOML parser
 type Config struct {
 	LogFile string
 	Reactor []interface{}

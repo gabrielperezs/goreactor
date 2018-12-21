@@ -8,6 +8,7 @@ import (
 	"github.com/gabrielperezs/goreactor/lib"
 )
 
+// Get will start the input plugins
 func Get(r *lib.Reactor, cfg interface{}) (lib.Input, error) {
 
 	var c map[string]interface{}
@@ -29,5 +30,5 @@ func Get(r *lib.Reactor, cfg interface{}) (lib.Input, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Unkown error")
+	return nil, fmt.Errorf("Unknown error")
 }

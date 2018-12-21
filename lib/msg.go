@@ -1,10 +1,6 @@
 package lib
 
-import "github.com/aws/aws-sdk-go/service/sqs"
-
-type Msg struct {
-	URL *string
-	SQS *sqs.SQS
-	M   *sqs.DeleteMessageBatchRequestEntry
-	B   []byte
+// Msg internal message interface that is share betwean Input plugins and Output plugins
+type Msg interface {
+	Body() []byte
 }

@@ -18,6 +18,8 @@ var (
 	logDoneCh   = make(chan bool)
 )
 
+// LogReload will run a goroutine to handle the logs, that are the
+// StdOut and StdErr from the output plugins
 func LogReload(name string) {
 	if logFile == nil {
 		go LogListener(name)
@@ -28,6 +30,7 @@ func LogReload(name string) {
 	logRotateCh <- true
 }
 
+// LogListener will store in files the output of the output plugins
 func LogListener(name string) {
 	defer func() {
 		close(logRotateCh)
@@ -61,6 +64,7 @@ func LogListener(name string) {
 	}
 }
 
+// OpenLogFile will create or reuse a file to store the logs
 func OpenLogFile(name string) (*os.File, error) {
 	var err error
 	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -71,14 +75,17 @@ func OpenLogFile(name string) (*os.File, error) {
 	return f, nil
 }
 
+// LogClose will finish the log system
 func LogClose() {
 	logDoneCh <- true
 }
 
+// LogRotate will rotate the underline files
 func LogRotate() {
 	logRotateCh <- true
 }
 
+// LogWrite create a slice of bytes that will be write in the files
 func LogWrite(b []byte) {
 	l := []byte(time.Now().UTC().String())
 	l = append(l, []byte(" ")...)
@@ -87,6 +94,7 @@ func LogWrite(b []byte) {
 	logCh <- l
 }
 
+// NewReactorLog create a log method for the reactors
 func NewReactorLog(rid uint64, tid uint64) ReactorLog {
 	r := ReactorLog{
 		rid:    rid,
@@ -99,6 +107,7 @@ func NewReactorLog(rid uint64, tid uint64) ReactorLog {
 	return r
 }
 
+// ReactorLog is the struct that will be associate to an specific reactor
 type ReactorLog struct {
 	prefix []byte
 	rep    []byte
@@ -106,6 +115,7 @@ type ReactorLog struct {
 	tid    uint64
 }
 
+// Write will be called by the reactor and this bytes will be sent to the general log channel
 func (rl ReactorLog) Write(b []byte) (int, error) {
 	for _, l := range bytes.Split(b, []byte("\n")) {
 		if len(l) == 0 {
@@ -125,6 +135,7 @@ func (rl ReactorLog) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// WriteStrings is the same as prev function but to receive strings
 func (rl ReactorLog) WriteStrings(s string) (int, error) {
 	rl.Write([]byte(s))
 	return len(s), nil

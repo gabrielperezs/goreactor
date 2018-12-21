@@ -8,6 +8,7 @@ import (
 	"github.com/gabrielperezs/goreactor/outputs/cmd"
 )
 
+// Get will start the output plugins
 func Get(r *lib.Reactor, cfg interface{}) (lib.Output, error) {
 
 	var c map[string]interface{}
@@ -29,5 +30,5 @@ func Get(r *lib.Reactor, cfg interface{}) (lib.Output, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Unkown error")
+	return nil, fmt.Errorf("Unknown error")
 }
