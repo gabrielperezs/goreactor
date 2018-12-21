@@ -59,7 +59,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 }
 
 // MatchConditions is a filter to replace the variables (usually commands arguments)
-// that are comming from the Input message
+// that are coming from the Input message
 func (o *Cmd) MatchConditions(msg lib.Msg) error {
 	if !o.argsjson {
 		return nil
