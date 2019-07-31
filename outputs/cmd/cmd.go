@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,7 +25,7 @@ type Cmd struct {
 	cmd      string
 	args     []string
 	argsjson bool
-	cond     map[string]string
+	cond     map[string]*regexp.Regexp
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
@@ -32,7 +34,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 
 	o := &Cmd{
 		r:    r,
-		cond: make(map[string]string),
+		cond: make(map[string]*regexp.Regexp),
 	}
 
 	for k, v := range c {
@@ -48,7 +50,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 		case "cond":
 			for _, v := range v.([]interface{}) {
 				for nk, nv := range v.(map[string]interface{}) {
-					o.cond[nk] = nv.(string)
+					o.cond[nk] = regexp.MustCompile(nv.(string))
 				}
 
 			}
@@ -69,9 +71,9 @@ func (o *Cmd) MatchConditions(msg lib.Msg) error {
 		if strings.HasPrefix(k, "$.") {
 			op, _ := jq.Parse(k[1:]) // create an Op
 			value, _ := op.Apply(msg.Body())
-			nv := strings.Trim(string(value), "\"")
+			nv := bytes.Trim(value, "\"")
 
-			if nv != v {
+			if !v.Match(nv) {
 				return lib.ErrInvalidMsgForPlugin
 			}
 		}
