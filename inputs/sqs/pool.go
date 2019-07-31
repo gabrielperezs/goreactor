@@ -59,7 +59,8 @@ func newSQSListen(r *lib.Reactor, c map[string]interface{}) (*sqsListen, error) 
 	log.Printf("SQS NEW %s", p.URL)
 
 	sess, err := session.NewSessionWithOptions(session.Options{
-		Profile: p.Profile,
+		Profile:           p.Profile,
+		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
 		return nil, err
