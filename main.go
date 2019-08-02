@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	version = "1.0"
+	version = "1.1"
 )
 
 // Config contains all the configuration parameters needed
