@@ -2,9 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -29,6 +32,7 @@ var (
 	running    []*lib.Reactor
 	conf       Config
 	configFile string
+	configDir  string
 	debug      bool
 	mu         sync.Mutex
 	chMain     = make(chan bool)
@@ -36,6 +40,7 @@ var (
 
 func main() {
 	flag.StringVar(&configFile, "config", "config.conf", "Configuration file")
+	flag.StringVar(&configDir, "d", "", "Configuration directory")
 	flag.BoolVar(&debug, "debug", false, "Debug mode")
 	flag.Parse()
 
@@ -87,9 +92,9 @@ func restart() {
 }
 
 func reload() {
-	var c *Config
-	if _, err := toml.DecodeFile(configFile, &c); err != nil {
-		log.Printf("ERROR reading config file %s: %s", configFile, err)
+	c, err := readConfig(configFile, configDir)
+	if err != nil {
+		log.Printf("ERROR reading config file or directory %s,%s: %s", configFile, configDir, err)
 		return
 	}
 	mu.Lock()
@@ -119,4 +124,60 @@ func sing() {
 			chMain <- true
 		}
 	}
+}
+
+func readConfig(configFile, configDir string) (c *Config, err error) {
+	c = &Config{
+		Reactor: make([]interface{}, 0),
+	}
+
+	if configDir == "" {
+		//Configuration is a file
+		_, err = toml.DecodeFile(configFile, &c)
+		return c, err
+	}
+
+	//Configuration is a directory
+	fileInfo, err := os.Stat(configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if !fileInfo.IsDir() {
+		return c, fmt.Errorf("Configuration directory is not a directory: %s", configDir)
+	}
+
+	files, err := ioutil.ReadDir(configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if filepath.Ext(file.Name()) != ".conf" {
+			continue
+		}
+
+		pathTemp := fmt.Sprintf("%s/%s", configDir, file.Name())
+
+		var configTemp *Config
+		if _, err := toml.DecodeFile(pathTemp, &configTemp); err != nil {
+			log.Printf("ERROR reading config file %s: %s", pathTemp, err)
+			continue
+		}
+
+		if c.LogFile == "" {
+			c.LogFile = configTemp.LogFile
+		}
+
+		for _, reactor := range configTemp.Reactor {
+			c.Reactor = append(c.Reactor, reactor)
+		}
+
+	}
+
+	return c, nil
 }
