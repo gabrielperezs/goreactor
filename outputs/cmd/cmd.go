@@ -3,8 +3,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"log"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -21,11 +19,10 @@ var (
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r        *lib.Reactor
-	cmd      string
-	args     []string
-	argsjson bool
-	cond     map[string]*regexp.Regexp
+	r    *lib.Reactor
+	cmd  string
+	args []string
+	cond map[string]*regexp.Regexp
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
@@ -45,8 +42,6 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			for _, n := range v.([]interface{}) {
 				o.args = append(o.args, n.(string))
 			}
-		case "argsjson":
-			o.argsjson = v.(bool)
 		case "cond":
 			for _, v := range v.([]interface{}) {
 				for nk, nv := range v.(map[string]interface{}) {
@@ -63,10 +58,6 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 // MatchConditions is a filter to replace the variables (usually commands arguments)
 // that are coming from the Input message
 func (o *Cmd) MatchConditions(msg lib.Msg) error {
-	if !o.argsjson {
-		return nil
-	}
-
 	for k, v := range o.cond {
 		if strings.HasPrefix(k, "$.") {
 			op, _ := jq.Parse(k[1:]) // create an Op
@@ -81,33 +72,34 @@ func (o *Cmd) MatchConditions(msg lib.Msg) error {
 	return nil
 }
 
+func (o *Cmd) findReplace(b []byte, s string) string {
+	if !strings.Contains(s, "$.") {
+		return s
+	}
+
+	newParse := s
+	for _, argValue := range strings.Split(s, "$.") {
+		if argValue == "" {
+			continue
+		}
+		op, _ := jq.Parse("." + argValue) // create an Op
+		value, _ := op.Apply(b)
+		newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
+	}
+	return newParse
+}
+
 // Run will execute the binary command that was defined in the config.
 // In this function we also define the OUT and ERR data destination of
 // the command.
-func (o *Cmd) Run(rl lib.ReactorLog, msg lib.Msg) error {
+func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 
 	var args []string
 
-	if o.argsjson {
-		for _, parse := range o.args {
-			if strings.Contains(parse, "$.") {
-				newParse := parse
-				for _, argValue := range strings.Split(parse, "$.") {
-					if argValue == "" {
-						continue
-					}
-					op, _ := jq.Parse("." + argValue) // create an Op
-					value, _ := op.Apply(msg.Body())
-					newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
-				}
-				args = append(args, newParse)
-			} else {
-				args = append(args, parse)
-			}
-		}
-	} else {
-		args = o.args
+	for _, parse := range o.args {
+		args = append(args, o.findReplace(msg.Body(), parse))
 	}
+	rl.Label = o.findReplace(msg.Body(), o.r.Label)
 
 	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
 	defer cancel()
@@ -122,12 +114,8 @@ func (o *Cmd) Run(rl lib.ReactorLog, msg lib.Msg) error {
 	c.Stdout = rl
 	c.Stderr = rl
 
-	runlog := fmt.Sprintf("RUN: %s %s", o.cmd, strings.Join(args, " "))
-	log.Println(runlog)
-	rl.WriteStrings(runlog)
+	rl.Start(o.cmd + " " + strings.Join(args, " "))
 	if err := c.Run(); err != nil {
-		// This will fail after timeout.
-		rl.WriteStrings(fmt.Sprintf("ERROR: %s", err))
 		return err
 	}
 

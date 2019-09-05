@@ -10,6 +10,12 @@ type Input interface {
 // Output is the interface for the Output plugins
 type Output interface {
 	MatchConditions(a Msg) error
-	Run(rl ReactorLog, a Msg) error
+	Run(rl *ReactorLog, a Msg) error
+	Exit()
+}
+
+// LogStreams is the inteface to send logs to stram services
+type LogStream interface {
+	Send(b []byte)
 	Exit()
 }

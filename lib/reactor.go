@@ -27,9 +27,12 @@ type Reactor struct {
 	tid          uint64
 	Concurrent   int
 	Delay        time.Duration
+	Label        string
+	Hostname     string
 	listeners    int64
 	nextDeadline time.Time
 	done         chan bool
+	logStream    LogStream
 }
 
 // NewReactor will create a reactor with the configuration
@@ -65,6 +68,8 @@ func (r *Reactor) Reload(icfg interface{}) {
 		switch strings.ToLower(k) {
 		case "concurrent":
 			r.Concurrent = int(v.(int64))
+		case "label":
+			r.Label = v.(string)
 		case "delay":
 			var err error
 			r.Delay, err = time.ParseDuration(v.(string))
@@ -77,6 +82,18 @@ func (r *Reactor) Reload(icfg interface{}) {
 	if r.Concurrent <= 0 {
 		r.Concurrent = 1
 	}
+}
+
+// SetLogStreams define what streams use for the log
+func (r *Reactor) SetLogStreams(lg LogStream) error {
+	r.logStream = lg
+	return nil
+}
+
+// SetHostname define the hostname
+func (r *Reactor) SetHostname(name string) error {
+	r.Hostname = name
+	return nil
 }
 
 // MatchConditions will call to the MatchConditions of the Output
@@ -103,12 +120,15 @@ func (r *Reactor) Exit() {
 	r.I.Exit()
 	close(r.Ch)
 	r.O.Exit()
+	if r.logStream != nil {
+		r.logStream.Exit()
+	}
 }
 
 func (r *Reactor) listener() {
 	defer func() {
 		r.done <- true
-		log.Printf("Done listener reactor")
+		//log.Printf("Done listener reactor")
 	}()
 
 	for msg := range r.Ch {
@@ -139,18 +159,23 @@ func (r *Reactor) deadline() {
 func (r *Reactor) run(msg Msg) {
 	r.deadline()
 
-	rl := NewReactorLog(r.id, atomic.AddUint64(&r.tid, 1))
-	if err := r.O.Run(rl, msg); err != nil {
-		switch err {
-		case ErrInvalidMsgForPlugin:
-		default:
-			if err := r.I.Put(msg); err != nil {
-				log.Printf("R [%d]: ERROR PUT: %s", r.id, string(msg.Body()))
-			}
-		}
-	} else {
+	var err error
+	rl := NewReactorLog(r.logStream, r.Hostname, r.id, atomic.AddUint64(&r.tid, 1))
+	err = r.O.Run(rl, msg)
+	defer rl.Done(err)
+
+	if err == nil {
 		if err := r.I.Delete(msg); err != nil {
-			log.Printf("R [%d]: ERROR DELETE: %s", r.id, string(msg.Body()))
+			log.Printf("INTERNAL ERROR: %s", err)
 		}
+		return
+	}
+
+	if err == ErrInvalidMsgForPlugin {
+		return
+	}
+
+	if err := r.I.Put(msg); err != nil {
+		log.Printf("INTERNAL ERROR: %s", err)
 	}
 }

@@ -14,18 +14,19 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/gabrielperezs/goreactor/inputs"
 	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/logstreams"
 	"github.com/gabrielperezs/goreactor/outputs"
 )
 
 const (
-	version = "1.1"
+	version = "1.2"
 )
 
 // Config contains all the configuration parameters needed
 // by all the plugins and filled with the TOML parser
 type Config struct {
-	LogFile string
-	Reactor []interface{}
+	LogStream interface{}
+	Reactor   []interface{}
 }
 
 var (
@@ -57,8 +58,18 @@ func main() {
 }
 
 func start() {
+
+	hostname, _ := os.Hostname()
+
+	lg, err := logstreams.Get(conf.LogStream)
+	if err != nil {
+		log.Printf("ERR: %s", err.Error())
+	}
+
 	for _, r := range conf.Reactor {
 		nr := lib.NewReactor(r)
+		nr.SetLogStreams(lg)
+		nr.SetHostname(hostname)
 
 		var err error
 		nr.I, err = inputs.Get(nr, r)
@@ -100,8 +111,6 @@ func reload() {
 	mu.Lock()
 	conf = *c
 	mu.Unlock()
-
-	lib.LogReload(conf.LogFile)
 }
 
 func sing() {
@@ -169,15 +178,9 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 			continue
 		}
 
-		if c.LogFile == "" {
-			c.LogFile = configTemp.LogFile
-		}
-
 		for _, reactor := range configTemp.Reactor {
 			c.Reactor = append(c.Reactor, reactor)
 		}
-
 	}
-
 	return c, nil
 }
