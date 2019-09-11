@@ -28,6 +28,7 @@ func NewReactorLog(logStream LogStream, hostname string, rid uint64, tid uint64)
 	r.TID = tid
 	r.Status = ""
 	r.st = time.Now()
+	r.Timestamp = r.st.Unix()
 	return r
 }
 
@@ -41,6 +42,7 @@ type ReactorLog struct {
 	Status    string  `json:",omitempty"`
 	Error     string  `json:",omitempty"`
 	Elapse    float64 `json:",omitempty"`
+	Timestamp int64   `json:",omitempty"`
 	st        time.Time
 	w         strings.Builder
 	logStream LogStream
@@ -110,6 +112,7 @@ func (rl *ReactorLog) reset() {
 	rl.Status = ""
 	rl.Error = ""
 	rl.Elapse = 0
+	rl.Timestamp = 0
 	rl.logStream = nil
 	rl.w.Reset()
 	reactorLogPool.Put(rl)
