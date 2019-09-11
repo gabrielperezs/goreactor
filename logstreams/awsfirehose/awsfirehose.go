@@ -1,7 +1,6 @@
 package awsfirehose
 
 import (
-	"log"
 	"reflect"
 	"strings"
 
@@ -64,7 +63,6 @@ func NewOrGet(cfg map[string]interface{}) (*AWSFirehose, error) {
 }
 
 func (o *AWSFirehose) Send(b []byte) {
-	log.Printf("AWSFirehose: %s", string(b))
 	o.s.C <- b
 }
 
