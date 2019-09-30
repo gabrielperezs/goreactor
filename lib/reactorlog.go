@@ -1,142 +1,119 @@
 package lib
 
 import (
-	"bytes"
-	"fmt"
+	"encoding/json"
 	"log"
-	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 var (
-	logMu       = &sync.Mutex{}
-	logFileName string
-	logFile     *os.File
-	logCh       = make(chan []byte, 1024)
-	logRotateCh = make(chan bool)
-	logDoneCh   = make(chan bool)
+	newLine        = []byte("\n")
+	reactorLogPool = &sync.Pool{
+		New: func() interface{} {
+			return &ReactorLog{
+				w: strings.Builder{},
+			}
+		},
+	}
 )
 
-// LogReload will run a goroutine to handle the logs, that are the
-// StdOut and StdErr from the output plugins
-func LogReload(name string) {
-	if logFile == nil {
-		go LogListener(name)
-		return
-	}
-
-	logFileName = name
-	logRotateCh <- true
-}
-
-// LogListener will store in files the output of the output plugins
-func LogListener(name string) {
-	defer func() {
-		close(logRotateCh)
-		close(logDoneCh)
-	}()
-
-	logFileName = name
-	f, err := OpenLogFile(logFileName)
-	if err != nil {
-		log.Panicln(err)
-	}
-	for {
-		select {
-		case b := <-logCh:
-			if _, err := f.Write(b); err != nil {
-				log.Printf("ERROR write log file: %s", err)
-				break
-			}
-		case <-logRotateCh:
-			f.Close()
-			var err error
-			f, err = OpenLogFile(logFileName)
-			if err != nil {
-				log.Printf("ERROR log: %s", err)
-			}
-		case <-logDoneCh:
-			close(logCh)
-			f.Close()
-			return
-		}
-	}
-}
-
-// OpenLogFile will create or reuse a file to store the logs
-func OpenLogFile(name string) (*os.File, error) {
-	var err error
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		log.Printf("ERROR opening log file: %s", err)
-		return nil, err
-	}
-	return f, nil
-}
-
-// LogClose will finish the log system
-func LogClose() {
-	logDoneCh <- true
-}
-
-// LogRotate will rotate the underline files
-func LogRotate() {
-	logRotateCh <- true
-}
-
-// LogWrite create a slice of bytes that will be write in the files
-func LogWrite(b []byte) {
-	l := []byte(time.Now().UTC().String())
-	l = append(l, []byte(" ")...)
-	l = append(l, b...)
-	l = append(l, []byte("\n")...)
-	logCh <- l
-}
-
 // NewReactorLog create a log method for the reactors
-func NewReactorLog(rid uint64, tid uint64) ReactorLog {
-	r := ReactorLog{
-		rid:    rid,
-		tid:    tid,
-		prefix: []byte(fmt.Sprintf("RID %d RTID %08d OUTPUT | ", rid, tid)),
-	}
-
-	r.rep = append([]byte("\n"), r.prefix...)
-
+func NewReactorLog(logStream LogStream, hostname string, rid uint64, tid uint64) *ReactorLog {
+	r := reactorLogPool.Get().(*ReactorLog)
+	r.Host = hostname
+	r.logStream = logStream
+	r.RID = rid
+	r.TID = tid
+	r.Status = ""
+	r.st = time.Now()
+	r.Timestamp = r.st.Unix()
 	return r
 }
 
 // ReactorLog is the struct that will be associate to an specific reactor
 type ReactorLog struct {
-	prefix []byte
-	rep    []byte
-	rid    uint64
-	tid    uint64
+	Host      string  `json:",omitempty"`
+	Label     string  `json:",omitempty"`
+	RID       uint64  `json:",omitempty"`
+	TID       uint64  `json:",omitempty"`
+	Output    string  `json:",omitempty"`
+	Status    string  `json:",omitempty"`
+	Error     string  `json:",omitempty"`
+	Elapse    float64 `json:",omitempty"`
+	Timestamp int64   `json:",omitempty"`
+	st        time.Time
+	w         strings.Builder
+	logStream LogStream
 }
 
 // Write will be called by the reactor and this bytes will be sent to the general log channel
-func (rl ReactorLog) Write(b []byte) (int, error) {
-	for _, l := range bytes.Split(b, []byte("\n")) {
-		if len(l) == 0 {
-			continue
-		}
-
-		n := []byte(time.Now().UTC().String())
-		n = append(n, []byte(" ")...)
-		n = append(n, rl.prefix...)
-
-		if bytes.HasSuffix(l, []byte("\n")) {
-			logCh <- append(n, l...)
+func (rl *ReactorLog) Write(b []byte) (int, error) {
+	for _, l := range b {
+		if l == newLine[0] {
+			rl.printJSON()
 		} else {
-			logCh <- append(append(n, l...), []byte("\n")...)
+			rl.w.WriteByte(l)
 		}
 	}
 	return len(b), nil
 }
 
+// Start change status and write the initial command
+func (rl *ReactorLog) Start(s string) {
+	rl.Status = "CMD"
+	rl.w.WriteString(s)
+	rl.printJSON()
+	rl.Status = "RUN"
+}
+
 // WriteStrings is the same as prev function but to receive strings
-func (rl ReactorLog) WriteStrings(s string) (int, error) {
-	rl.Write([]byte(s))
+func (rl *ReactorLog) WriteStrings(s string) (int, error) {
+	rl.w.WriteString(s)
+	rl.printJSON()
 	return len(s), nil
+}
+
+// Done write in the logs the elapse time for the current execution
+func (rl *ReactorLog) Done(err error) {
+	rl.Status = "END"
+	if err != nil {
+		rl.Error = err.Error()
+	}
+	// https://github.com/golang/go/issues/5491#issuecomment-66079585
+	rl.Elapse = time.Now().Sub(rl.st).Seconds()
+	rl.printJSON()
+	rl.reset()
+}
+
+func (rl *ReactorLog) printJSON() {
+	rl.Output = rl.w.String()
+	rl.w.Reset()
+
+	b, err := json.Marshal(rl)
+	if err != nil {
+		log.Printf("INTERNAL ERROR: %s", err.Error())
+		return
+	}
+	ls := rl.logStream
+	if ls != nil {
+		ls.Send(b)
+	}
+	rl.Output = ""
+}
+
+func (rl *ReactorLog) reset() {
+	rl.Host = ""
+	rl.Label = ""
+	rl.RID = 0
+	rl.TID = 0
+	rl.Output = ""
+	rl.Status = ""
+	rl.Error = ""
+	rl.Elapse = 0
+	rl.Timestamp = 0
+	rl.logStream = nil
+	rl.w.Reset()
+	reactorLogPool.Put(rl)
 }

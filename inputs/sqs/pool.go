@@ -135,7 +135,7 @@ func (p *sqsListen) listen() {
 
 			// We delete this message if is invalid for all the reactors
 			if !atLeastOneValid {
-				lib.LogWrite([]byte(fmt.Sprintf("Invalid message, deleted: %s", *msg.Body)))
+				log.Printf("Invalid message from %s, deleted: %s", p.URL, *msg.Body)
 				p.Delete(m)
 			}
 		}
