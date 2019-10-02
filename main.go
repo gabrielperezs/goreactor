@@ -181,6 +181,11 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 		for _, reactor := range configTemp.Reactor {
 			c.Reactor = append(c.Reactor, reactor)
 		}
+
+		// Read first LogStream only
+		if c.LogStream == nil && configTemp.LogStream != nil {
+			c.LogStream = configTemp.LogStream
+		}
 	}
 	return c, nil
 }
