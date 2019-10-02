@@ -80,6 +80,7 @@ func (rl *ReactorLog) Done(err error) {
 	rl.Status = "END"
 	if err != nil {
 		rl.Error = err.Error()
+		log.Printf("ERROR (RID %d TID %d Label %s): %s", rl.TID, rl.TID, rl.Label, rl.w.String())
 	}
 	// https://github.com/golang/go/issues/5491#issuecomment-66079585
 	rl.Elapse = time.Now().Sub(rl.st).Seconds()
