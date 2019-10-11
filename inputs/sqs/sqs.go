@@ -9,7 +9,7 @@ import (
 
 const (
 	maxNumberOfMessages = 10 // Limit of messages can be read from SQS
-	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
+	waitTimeSeconds     = 5  // Seconds to keep open the connection to SQS
 )
 
 // SQSPlugin struct for SQS Input plugin

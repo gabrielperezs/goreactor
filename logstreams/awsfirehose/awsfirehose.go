@@ -8,8 +8,7 @@ import (
 )
 
 type AWSFirehose struct {
-	existing bool
-	s        *firehosePool.Server
+	s *firehosePool.Server
 }
 
 func NewOrGet(cfg map[string]interface{}) (*AWSFirehose, error) {
@@ -64,13 +63,9 @@ func NewOrGet(cfg map[string]interface{}) (*AWSFirehose, error) {
 }
 
 func (o *AWSFirehose) Send(b []byte) {
-	if o.existing {
-		return
-	}
 	o.s.C <- b
 }
 
 func (o *AWSFirehose) Exit() {
-	o.existing = true
 	o.s.Exit()
 }

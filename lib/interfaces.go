@@ -11,10 +11,10 @@ type Input interface {
 type Output interface {
 	MatchConditions(a Msg) error
 	Run(rl *ReactorLog, a Msg) error
-	Exit()
+	Exit() error
 }
 
-// LogStreams is the inteface to send logs to stram services
+// LogStream is the inteface to send logs to stram services
 type LogStream interface {
 	Send(b []byte)
 	Exit()

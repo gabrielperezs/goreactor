@@ -3,9 +3,12 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"log"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gabrielperezs/goreactor/lib"
@@ -13,25 +16,30 @@ import (
 )
 
 var (
+	exitInterval       = 500 * time.Millisecond
+	waitExit           = 2 * time.Second
 	maximumCmdTimeLive = 10 * time.Minute
 )
 
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r    *lib.Reactor
-	cmd  string
-	args []string
-	cond map[string]*regexp.Regexp
+	mu      *sync.Mutex
+	r       *lib.Reactor
+	cmd     string
+	args    []string
+	cond    map[string]*regexp.Regexp
+	running map[int]*exec.Cmd
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
 // config data.
 func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
-
 	o := &Cmd{
-		r:    r,
-		cond: make(map[string]*regexp.Regexp),
+		mu:      &sync.Mutex{},
+		r:       r,
+		cond:    make(map[string]*regexp.Regexp),
+		running: make(map[int]*exec.Cmd),
 	}
 
 	for k, v := range c {
@@ -47,7 +55,6 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 				for nk, nv := range v.(map[string]interface{}) {
 					o.cond[nk] = regexp.MustCompile(nv.(string))
 				}
-
 			}
 		}
 	}
@@ -93,7 +100,6 @@ func (o *Cmd) findReplace(b []byte, s string) string {
 // In this function we also define the OUT and ERR data destination of
 // the command.
 func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
-
 	var args []string
 
 	for _, parse := range o.args {
@@ -104,25 +110,68 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
 	defer cancel()
 
-	var c *exec.Cmd
-	if len(args) > 0 {
-		c = exec.CommandContext(ctx, o.cmd, args...)
-	} else {
-		c = exec.CommandContext(ctx, o.cmd)
-	}
+	cmd := exec.CommandContext(ctx, o.cmd, args...)
 
-	c.Stdout = rl
-	c.Stderr = rl
+	cmd.Stdout = rl
+	cmd.Stderr = rl
 
 	rl.Start(o.cmd + " " + strings.Join(args, " "))
-	if err := c.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	pid := cmd.Process.Pid
+	log.Printf("PID: %v", pid)
+	o.mu.Lock()
+	o.running[pid] = cmd
+	o.mu.Unlock()
+	defer func() {
+		log.Printf("PID-DONE: %v", pid)
+		o.mu.Lock()
+		delete(o.running, pid)
+		o.mu.Unlock()
+	}()
+
+	if err := cmd.Wait(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Exit will finish the command // TODO
-func (o *Cmd) Exit() {
+// Exit will finish the command
+func (o *Cmd) Exit() error {
+	o.mu.Lock()
+	copyRunning := make(map[int]*exec.Cmd, len(o.running))
+	for pid, cmd := range o.running {
+		copyRunning[pid] = cmd
+	}
+	o.mu.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), waitExit)
+	defer cancel()
+	for {
+		for pid, cmd := range copyRunning {
+			if cmd == nil || cmd.Process == nil || cmd.ProcessState == nil {
+				delete(copyRunning, pid)
+			}
+		}
+		if len(copyRunning) == 0 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			for _, cmd := range copyRunning {
+				if cmd == nil || cmd.Process == nil || cmd.ProcessState == nil {
+					continue
+				}
+				cmd.Stderr = os.Stderr
+				cmd.Stdout = os.Stdout
+				cmd.Process.Kill()
+			}
+			return ctx.Err()
+		default:
+		}
+		time.Sleep(exitInterval)
+	}
 }
