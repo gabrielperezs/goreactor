@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"os/exec"
+	"os/user"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gabrielperezs/goreactor/lib"
@@ -21,6 +24,7 @@ var (
 type Cmd struct {
 	r    *lib.Reactor
 	cmd  string
+	user string
 	args []string
 	cond map[string]*regexp.Regexp
 }
@@ -42,6 +46,8 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			for _, n := range v.([]interface{}) {
 				o.args = append(o.args, n.(string))
 			}
+		case "user":
+			o.user = v.(string)
 		case "cond":
 			for _, v := range v.([]interface{}) {
 				for nk, nv := range v.(map[string]interface{}) {
@@ -89,6 +95,41 @@ func (o *Cmd) findReplace(b []byte, s string) string {
 	return newParse
 }
 
+func getUserCredential(u string) (*syscall.Credential, error) {
+	gottenUser, err := user.Lookup(u)
+
+	if err != nil {
+		return nil, err
+	}
+	uid, err := strconv.ParseUint(gottenUser.Uid, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	gid, err := strconv.ParseUint(gottenUser.Gid, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]uint32, 0, 0)
+	groupIdStrs, err := gottenUser.GroupIds()
+	if err != nil {
+		return nil, err
+	}
+	for _, sgid := range groupIdStrs {
+		supplementaryGid, err := strconv.ParseUint(sgid, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		groups = append(groups, uint32(supplementaryGid))
+	}
+
+	return &syscall.Credential{
+		Uid:         uint32(uid),
+		Gid:         uint32(gid),
+		Groups:      groups,
+		NoSetGroups: false,
+	}, nil
+}
+
 // Run will execute the binary command that was defined in the config.
 // In this function we also define the OUT and ERR data destination of
 // the command.
@@ -109,6 +150,16 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 		c = exec.CommandContext(ctx, o.cmd, args...)
 	} else {
 		c = exec.CommandContext(ctx, o.cmd)
+	}
+
+	if o.user != "" {
+		userCredential, err := getUserCredential(o.user)
+		if err != nil {
+			return err
+		}
+		c.SysProcAttr = &syscall.SysProcAttr{}
+		c.SysProcAttr.Credential = userCredential
+
 	}
 
 	c.Stdout = rl
