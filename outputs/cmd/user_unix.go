@@ -3,19 +3,34 @@
 package cmd
 
 import (
+	"fmt"
 	"os/exec"
 	"os/user"
 	"strconv"
 	"syscall"
 )
 
-func setUserToCmd(u string, c *exec.Cmd) error{
+func setUserToCmd(u string, finalEnv []string, c *exec.Cmd) error {
 	userCredential, err := getUserCredential(u)
 	if err != nil {
 		return err
 	}
+	c.Env = append(finalEnv)
 	c.SysProcAttr = &syscall.SysProcAttr{}
 	c.SysProcAttr.Credential = userCredential
+	setEnvirons(u, finalEnv, c)
+	return nil
+}
+
+func setEnvirons(u string, finalEnv []string, c *exec.Cmd) error {
+	gottenUser, err := user.Lookup(u)
+
+	if err != nil {
+		return err
+	}
+	c.Env = append(
+		[]string{fmt.Sprintf("HOME=%s", gottenUser.HomeDir)}, // This way if HOME can be redefined. Only last remains
+		finalEnv...)
 	return nil
 }
 

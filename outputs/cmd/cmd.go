@@ -19,11 +19,12 @@ var (
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r    *lib.Reactor
-	cmd  string
-	user string
-	args []string
-	cond map[string]*regexp.Regexp
+	r           *lib.Reactor
+	cmd         string
+	user        string
+	environment []string
+	args        []string
+	cond        map[string]*regexp.Regexp
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
@@ -45,6 +46,10 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			}
 		case "user":
 			o.user = v.(string)
+		case "environs" , "environment", "env":
+			for _, n := range v.([]interface{}) {
+				o.environment = append(o.environment, n.(string))
+			}
 		case "cond":
 			for _, v := range v.([]interface{}) {
 				for nk, nv := range v.(map[string]interface{}) {
@@ -115,7 +120,7 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 	}
 
 	if o.user != "" {
-		err := setUserToCmd(o.user, c)
+		err := setUserToCmd(o.user, o.environment, c)
 		if err != nil {
 			return err
 		}
