@@ -116,21 +116,19 @@ func reload() {
 func sing() {
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	for {
 		switch <-sigs {
 		case syscall.SIGHUP:
 			log.Printf("Rotate logs")
 			reload()
-		case syscall.SIGUSR1:
-			log.Printf("Full restart")
-			reload()
 			restart()
-		default:
+		case syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT, os.Interrupt:
 			log.Printf("Exiting...")
 			exit()
 			chMain <- true
+		default:
 		}
 	}
 }
