@@ -99,10 +99,6 @@ func (o *Cmd) findReplace(b []byte, s string) string {
 }
 
 func (o *Cmd) findReplaceReturningSlice(b []byte, s string) []string {
-	if !strings.Contains(s, "$.") {
-		return []string{s}
-	}
-
 	if !strings.HasPrefix(s, "$.") || !strings.HasSuffix(s, "...") {
 		return []string{o.findReplace(b, s)} // Fallback to previous function
 	}
