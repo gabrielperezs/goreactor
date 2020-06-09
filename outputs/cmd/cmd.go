@@ -120,16 +120,22 @@ func (o *Cmd) findReplaceReturningSlice(b []byte, s string) []string {
 	return values
 }
 
+func (o *Cmd) getReplacedArguments(b []byte) []string {
+	var args []string
+	for _, parse := range o.args {
+		args = append(args, o.findReplaceReturningSlice(b, parse)...)
+	}
+	return args
+}
+
 // Run will execute the binary command that was defined in the config.
 // In this function we also define the OUT and ERR data destination of
 // the command.
 func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 
 	var args []string
+	args = o.getReplacedArguments(msg.Body())
 
-	for _, parse := range o.args {
-		args = append(args, o.findReplaceReturningSlice(msg.Body(), parse)...)
-	}
 	rl.Label = o.findReplace(msg.Body(), o.r.Label)
 
 	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
