@@ -47,7 +47,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			}
 		case "user":
 			o.user = v.(string)
-		case "environs" , "environment", "env":
+		case "environs", "environment", "env":
 			for _, n := range v.([]interface{}) {
 				o.environment = append(o.environment, n.(string))
 			}
@@ -103,27 +103,21 @@ func (o *Cmd) findReplaceReturningSlice(b []byte, s string) []string {
 		return []string{s}
 	}
 
-	if strings.HasPrefix(s, "$.") && strings.HasSuffix(s, "...") {
-		cleanArgValue := s[1:len(s)-3] // Remove initial $ and final ...
-		op, err := jq.Parse(cleanArgValue)
-		if err == nil {
-			substituted, _ := op.Apply(b)
-			var values []string
-			json.Unmarshal(substituted, &values)
-			return values
-		}
+	if !strings.HasPrefix(s, "$.") || !strings.HasSuffix(s, "...") {
+		return []string{o.findReplace(b, s)} // Fallback to previous function
 	}
 
-	newParse := s
-	for _, argValue := range strings.Split(s, "$.") {
-		if argValue == "" {
-			continue
-		}
-		op, _ := jq.Parse("." + argValue) // create an Op
-		value, _ := op.Apply(b)
-		newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
+	cleanArgValue := s[1 : len(s)-3] // Remove initial $ and final ...
+	op, err := jq.Parse(cleanArgValue)
+	if err != nil {
+		return []string{o.findReplace(b, s)} // Fallback to previous function
 	}
-	return []string{newParse}
+
+	substituted, _ := op.Apply(b)
+	var values []string
+
+	json.Unmarshal(substituted, &values)
+	return values
 }
 
 // Run will execute the binary command that was defined in the config.
