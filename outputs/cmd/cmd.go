@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -95,6 +96,34 @@ func (o *Cmd) findReplace(b []byte, s string) string {
 		newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
 	}
 	return newParse
+}
+
+func (o *Cmd) findReplaceReturningSlice(b []byte, s string) []string {
+	if !strings.Contains(s, "$.") {
+		return []string{s}
+	}
+
+	if strings.HasPrefix(s, "$.") && strings.HasSuffix(s, "...") {
+		cleanArgValue := s[1:len(s)-3] // Remove initial $ and final ...
+		op, err := jq.Parse(cleanArgValue)
+		if err == nil {
+			substituted, _ := op.Apply(b)
+			var values []string
+			json.Unmarshal(substituted, &values)
+			return values
+		}
+	}
+
+	newParse := s
+	for _, argValue := range strings.Split(s, "$.") {
+		if argValue == "" {
+			continue
+		}
+		op, _ := jq.Parse("." + argValue) // create an Op
+		value, _ := op.Apply(b)
+		newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
+	}
+	return []string{newParse}
 }
 
 // Run will execute the binary command that was defined in the config.
