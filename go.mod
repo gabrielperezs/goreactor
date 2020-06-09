@@ -12,4 +12,5 @@ require (
 	github.com/gallir/smart-relayer v8.8.6+incompatible // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/savaki/jq v0.0.0-20161209013833-0e6baecebbf8
+	github.com/stretchr/testify v1.4.0
 )
