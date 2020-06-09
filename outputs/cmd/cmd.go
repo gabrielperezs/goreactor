@@ -128,7 +128,7 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 	var args []string
 
 	for _, parse := range o.args {
-		args = append(args, o.findReplace(msg.Body(), parse))
+		args = append(args, o.findReplaceReturningSlice(msg.Body(), parse)...)
 	}
 	rl.Label = o.findReplace(msg.Body(), o.r.Label)
 
