@@ -36,7 +36,7 @@ func TestJqReplaceActuallyReplacing(t *testing.T) {
 		B: []byte("{\"lang\":\"python3\",\"script\":\"script01\"}"),
 	}
 
-	var args = cmd.getReplacedArguments(msg.Body())
+	var args = cmd.getReplacedArguments(msg)
 
 	assert.Equal(t, 2, len(args))
 	assert.Equal(t, "python3", args[0])
@@ -66,7 +66,7 @@ func TestFindReplaceReturningSlice(t *testing.T) {
 		B: []byte(`{"lang":"python3","script":"script01","args":["third", "fourth"]}`),
 	}
 
-	var args = cmd.getReplacedArguments(msg.Body())
+	var args = cmd.getReplacedArguments(msg)
 
 	assert.Equal(t, 4, len(args))
 	assert.Equal(t, "python3", args[0])
@@ -134,7 +134,7 @@ func TestFindReplaceS3Example(t *testing.T) {
 }`),
 	}
 
-	var args = cmd.getReplacedArguments(msg.Body())
+	var args = cmd.getReplacedArguments(msg)
 
 	assert.Equal(t, 3, len(args))
 	assert.Equal(t, `-plugin=bucket-name`, args[0])
@@ -160,7 +160,7 @@ func TestFindReplacePassJsonItself(t *testing.T) {
 		B: []byte(`{"first_key": "value"}`),
 	}
 
-	var args = cmd.getReplacedArguments(msg.Body())
+	var args = cmd.getReplacedArguments(msg)
 
 	assert.Equal(t, 1, len(args))
 	assert.Equal(t, `{"first_key": "value"}`, args[0])
@@ -182,7 +182,7 @@ func TestFindReplaceExpandArray(t *testing.T) {
 		B: []byte(`["first", "second"]`),
 	}
 
-	var args = cmd.getReplacedArguments(msg.Body())
+	var args = cmd.getReplacedArguments(msg)
 
 	assert.Equal(t, 4, len(args))
 	assert.Equal(t, "first", args[0])

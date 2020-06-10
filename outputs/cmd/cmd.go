@@ -81,45 +81,49 @@ func (o *Cmd) MatchConditions(msg lib.Msg) error {
 	return nil
 }
 
-func (o *Cmd) findReplace(b []byte, s string) string {
-	if !strings.Contains(s, "$.") {
-		return s
-	}
-
+func (o *Cmd) findAndReplaceJsonPaths(msg lib.Msg, s string) string {
 	newParse := s
 	for _, argValue := range strings.Split(s, "$.") {
 		if argValue == "" {
 			continue
 		}
 		op, _ := jq.Parse("." + argValue) // create an Op
-		value, _ := op.Apply(b)
+		value, _ := op.Apply(msg.Body())
 		newParse = strings.Replace(newParse, "$."+argValue, strings.Trim(string(value), "\""), -1)
 	}
 	return newParse
 }
 
-func (o *Cmd) findReplaceReturningSlice(b []byte, s string) []string {
+func (o *Cmd) findReplace(msg lib.Msg, s string) string {
+	var currentString string = s
+	if strings.Contains(s, "$.") {
+		currentString = o.findAndReplaceJsonPaths(msg, currentString)
+	}
+	return currentString
+}
+
+func (o *Cmd) findReplaceReturningSlice(msg lib.Msg, s string) []string {
 	if !strings.HasPrefix(s, "$.") || !strings.HasSuffix(s, "...") {
-		return []string{o.findReplace(b, s)} // Fallback to previous function
+		return []string{o.findReplace(msg, s)} // Fallback to previous function
 	}
 
 	cleanArgValue := s[1 : len(s)-3] // Remove initial $ and final ...
 	op, err := jq.Parse(cleanArgValue)
 	if err != nil {
-		return []string{o.findReplace(b, s)} // Fallback to previous function
+		return []string{o.findReplace(msg, s)} // Fallback to previous function
 	}
 
-	substituted, _ := op.Apply(b)
+	substituted, _ := op.Apply(msg.Body())
 	var values []string
 
 	json.Unmarshal(substituted, &values)
 	return values
 }
 
-func (o *Cmd) getReplacedArguments(b []byte) []string {
+func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 	var args []string
 	for _, parse := range o.args {
-		args = append(args, o.findReplaceReturningSlice(b, parse)...)
+		args = append(args, o.findReplaceReturningSlice(msg, parse)...)
 	}
 	return args
 }
@@ -130,9 +134,9 @@ func (o *Cmd) getReplacedArguments(b []byte) []string {
 func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 
 	var args []string
-	args = o.getReplacedArguments(msg.Body())
+	args = o.getReplacedArguments(msg)
 
-	rl.Label = o.findReplace(msg.Body(), o.r.Label)
+	rl.Label = o.findReplace(msg, o.r.Label)
 
 	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
 	defer cancel()
