@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,8 +96,8 @@ func (o *Cmd) findAndReplaceJsonPaths(msg lib.Msg, s string) string {
 }
 
 func (o *Cmd) findReplace(msg lib.Msg, s string) string {
-	var currentString string = s
-	if strings.Contains(s, "$.") {
+	var currentString = s
+	if strings.Contains(currentString, "$.") {
 		currentString = o.findAndReplaceJsonPaths(msg, currentString)
 	}
 	return currentString
@@ -124,6 +125,11 @@ func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 	var args []string
 	for _, parse := range o.args {
 		args = append(args, o.findReplaceReturningSlice(msg, parse)...)
+	}
+	for i := 0; i < len(args); i++ {
+		if strings.Contains(args[i], "${CreationTimestamp}") {
+			args[i] = strings.Replace(args[i], "${CreationTimestamp}", strconv.FormatInt(msg.CreationTimestamp(), 10), -1)
+		}
 	}
 	return args
 }

@@ -3,6 +3,7 @@ package sqs
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -106,6 +107,12 @@ func (p *sqsListen) listen() {
 			// Flag to delete the message if don't match with at least one reactor condition
 			atLeastOneValid := false
 
+			timestamp, ok := msg.Attributes["SentTimestamp"]
+			var sentTimestamp int64
+			if ok && timestamp != nil {
+				sentTimestamp, _ = strconv.ParseInt(*timestamp, 10, 64)
+			}
+
 			m := &Msg{
 				SQS: p.svc,
 				B:   []byte(*msg.Body),
@@ -114,6 +121,7 @@ func (p *sqsListen) listen() {
 					ReceiptHandle: msg.ReceiptHandle,
 				},
 				URL: aws.String(p.URL),
+				SentTimestamp: sentTimestamp,
 			}
 
 			jsonParsed, err := gabs.ParseJSON(m.B)

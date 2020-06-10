@@ -7,11 +7,16 @@ import (
 )
 
 type Msg struct {
-	B []byte
+	B  []byte
+	ts int64
 }
 
 func (m *Msg) Body() []byte {
 	return m.B
+}
+
+func (m *Msg) CreationTimestamp() int64 {
+	return m.ts
 }
 
 func TestJqReplaceActuallyReplacing(t *testing.T) {
@@ -33,7 +38,8 @@ func TestJqReplaceActuallyReplacing(t *testing.T) {
 	assert.Equal(t, "$.script", cmd.args[1])
 
 	var msg lib.Msg = &Msg{
-		B: []byte("{\"lang\":\"python3\",\"script\":\"script01\"}"),
+		B:  []byte("{\"lang\":\"python3\",\"script\":\"script01\"}"),
+		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
@@ -63,7 +69,8 @@ func TestFindReplaceReturningSlice(t *testing.T) {
 	assert.Equal(t, "$.args...", cmd.args[2])
 
 	var msg lib.Msg = &Msg{
-		B: []byte(`{"lang":"python3","script":"script01","args":["third", "fourth"]}`),
+		B:  []byte(`{"lang":"python3","script":"script01","args":["third", "fourth"]}`),
+		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
@@ -132,6 +139,7 @@ func TestFindReplaceS3Example(t *testing.T) {
       }
    ]
 }`),
+		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
@@ -141,8 +149,6 @@ func TestFindReplaceS3Example(t *testing.T) {
 	assert.Equal(t, `-file=object-key`, args[1])
 	assert.Equal(t, `-config=/usr/local/etc/suppliers-metrics.conf`, args[2])
 }
-
-
 
 func TestFindReplacePassJsonItself(t *testing.T) {
 	var r *lib.Reactor = nil
@@ -158,6 +164,7 @@ func TestFindReplacePassJsonItself(t *testing.T) {
 
 	var msg lib.Msg = &Msg{
 		B: []byte(`{"first_key": "value"}`),
+		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
@@ -180,6 +187,7 @@ func TestFindReplaceExpandArray(t *testing.T) {
 
 	var msg lib.Msg = &Msg{
 		B: []byte(`["first", "second"]`),
+		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
@@ -189,4 +197,61 @@ func TestFindReplaceExpandArray(t *testing.T) {
 	assert.Equal(t, "second", args[1])
 	assert.Equal(t, "first", args[2])
 	assert.Equal(t, "second", args[3])
+}
+
+func TestFindReplaceVariables(t *testing.T) {
+	var r *lib.Reactor = nil
+
+	c := make(map[string]interface{})
+	c["cmd"] = "cmd_name"
+	c["args"] = []interface{}{"--timestamp", "${CreationTimestamp}"} //Should test both just in case at some point it's used.
+
+	cmd, err := NewOrGet(r, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var msg lib.Msg = &Msg{
+		B: []byte(""),
+		ts: 1591784694,
+	}
+
+	var args = cmd.getReplacedArguments(msg)
+
+	assert.Equal(t, 2, len(args))
+	assert.Equal(t, "--timestamp", args[0])
+	assert.Equal(t, "1591784694", args[1])
+}
+
+func TestFindReplaceWithArrayAndVariable(t *testing.T) {
+	var r *lib.Reactor = nil
+
+	c := make(map[string]interface{})
+	c["cmd"] = "cmd_name"
+	c["args"] = []interface{}{"$.lang", "$.script", "$.args..."}
+
+	cmd, err := NewOrGet(r, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "", cmd.user)
+	assert.Equal(t, "cmd_name", cmd.cmd)
+	assert.Equal(t, 3, len(cmd.args))
+	assert.Equal(t, "$.lang", cmd.args[0])
+	assert.Equal(t, "$.script", cmd.args[1])
+	assert.Equal(t, "$.args...", cmd.args[2])
+
+	var msg lib.Msg = &Msg{
+		B:  []byte(`{"lang":"python3","script":"script01","args":["--timestamp", "${CreationTimestamp}"]}`),
+		ts: 1591784694,
+	}
+
+	var args = cmd.getReplacedArguments(msg)
+
+	assert.Equal(t, 4, len(args))
+	assert.Equal(t, "python3", args[0])
+	assert.Equal(t, "script01", args[1])
+	assert.Equal(t, "--timestamp", args[2])
+	assert.Equal(t, "1591784694", args[3])
 }
