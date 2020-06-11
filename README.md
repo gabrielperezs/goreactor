@@ -5,13 +5,41 @@ Goreactor, trigger a message and execute commands
 
 The current version just support inputs from AWS SQS, in next versions will support also HTTP/S and Redis QUEUES.
 
+Features
+========
+
+Substitutions in args entry in the config file
+----------------------------------------------
+
+- `$.path.with[0].jq.format`
+
+    jq like format after `$.` _See [Usage case, message from SQS](#usage-case-message-from-sqs) for an example_
+
+- `$.path.to.array...`
+
+    If the jq like expression is the only text in the argument and ends with ... _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
+
+    will expand the array in the specified path in different arguments.
+
+    The use of this will replace the argument with N arguments where N is the number of elements in the array.
+
+    NOTE: Should be the only text in the given argument element on the array.
+
+- `${variableName}`
+
+    Variables will be substituted in the arguments if the variable is in the following list. (This can also come from an expanded array)
+
+    Currently, we have the following variables:
+    - `CreationTimestampMilliseconds` is the message creation time with in milliseconds
+    - `CreationTimestampSeconds` is the message creation time in seconds
+
 
 Usage case, message from SQS
 ===========================
 
 In the next example, we will run a command after receiving a message from SQS, the message received will look like the JSON below
 
-Message recived from SQS
+Message received from SQS
 ------------------------
 
 ```json
@@ -58,7 +86,7 @@ url = "https://sqs.eu-west-1.amazonaws.com/9999999999/testing"
 profile = "default"
 region = "eu-west-1"
 output = "cmd"
-cond = [ 
+cond = [
     { "$.Event" = "autoscaling:EC2_INSTANCE_LAUNCH" }
 ]
 cmd = "/usr/local/bin/do-something-with-the-instance"
@@ -73,12 +101,3 @@ The daemon will execute a command like
 ```bash
 /usr/local/bin/do-something-with-the instance asg=SOMEGROUPNAME instance_id=i-00000009999
 ```
-
-Substitutions in args entry in the config file
-----------------------------------------------
-
-- `$.path.with[0].jq.format`
-- `$.path.to.array...` will expand the array in the specified path in different arguments. (This can also come from an expanded array) But have to be alone in the argument.
-- `${variableName}` will substitute it if the variable is in the following list.
-    - `CreationTimestampMilliseconds`: message creation time with in milliseconds
-    - `CreationTimestampSeconds`: message creation time in seconds
