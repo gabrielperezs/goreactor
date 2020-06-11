@@ -66,9 +66,19 @@ args = ["asg=$.AutoScalingGroupName", "instance_id=$.EC2InstanceId"]
 argsjson = true
 ```
 
+
 The daemon will execute a command like
 --------------------------------------
 
 ```bash
 /usr/local/bin/do-something-with-the instance asg=SOMEGROUPNAME instance_id=i-00000009999
 ```
+
+Substitutions in args entry in the config file
+----------------------------------------------
+
+- `$.path.with[0].jq.format`
+- `$.path.to.array...` will expand the array in the specified path in different arguments. (This can also come from an expanded array) But have to be alone in the argument.
+- `${variableName}` will substitute it if the variable is in the following list.
+    - `CreationTimestampMilliseconds`: message creation time with in milliseconds
+    - `CreationTimestampSeconds`: message creation time in seconds
