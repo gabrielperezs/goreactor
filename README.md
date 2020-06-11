@@ -17,7 +17,7 @@ Substitutions in args entry in the config file
 
 - `$.path.to.array...`
 
-    If the jq like expression is the only text in the argument and ends with ... _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
+    If the jq like expression (Starting with `$.`) is the only text in the argument and ends with `...` _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
     will expand the array in the specified path in different arguments.
 
@@ -31,7 +31,7 @@ Substitutions in args entry in the config file
 
     Currently, we have the following variables:
     - `CreationTimestampMilliseconds` is the message creation time with in milliseconds
-    - `CreationTimestampSeconds` is the message creation time in seconds
+    - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
 
 Usage case, message from SQS
