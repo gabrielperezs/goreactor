@@ -15,7 +15,7 @@ func Get(r *lib.Reactor, cfg interface{}) (lib.Output, error) {
 	var ok bool
 
 	if c, ok = cfg.(map[string]interface{}); !ok {
-		return nil, fmt.Errorf("Can't read the configuration")
+		return nil, fmt.Errorf("Can't read the configuration (hint: Output)")
 	}
 
 	for k, v := range c {
