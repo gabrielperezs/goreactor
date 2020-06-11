@@ -15,7 +15,7 @@ func (m *Msg) Body() []byte {
 	return m.B
 }
 
-func (m *Msg) CreationTimestamp() int64 {
+func (m *Msg) CreationTimestampMilliseconds() int64 {
 	return m.ts
 }
 
@@ -204,7 +204,7 @@ func TestFindReplaceVariables(t *testing.T) {
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"--timestamp", "${CreationTimestamp}"} //Should test both just in case at some point it's used.
+	c["args"] = []interface{}{"--timestamp", "${CreationTimestampMilliseconds}"} //Should test both just in case at some point it's used.
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -243,15 +243,19 @@ func TestFindReplaceWithArrayAndVariable(t *testing.T) {
 	assert.Equal(t, "$.args...", cmd.args[2])
 
 	var msg lib.Msg = &Msg{
-		B:  []byte(`{"lang":"python3","script":"script01","args":["--timestamp", "${CreationTimestamp}"]}`),
+		B:  []byte(`{"lang":"python3","script":"script01","args":
+						["--timestamp", "${CreationTimestampSeconds}", 
+							"--timestamp-with-milliseconds-precision", "${CreationTimestampMilliseconds}"]}`),
 		ts: 1591784694,
 	}
 
 	var args = cmd.getReplacedArguments(msg)
 
-	assert.Equal(t, 4, len(args))
+	assert.Equal(t, 6, len(args))
 	assert.Equal(t, "python3", args[0])
 	assert.Equal(t, "script01", args[1])
 	assert.Equal(t, "--timestamp", args[2])
-	assert.Equal(t, "1591784694", args[3])
+	assert.Equal(t, "1591784", args[3])
+	assert.Equal(t, "--timestamp-with-milliseconds-precision", args[4])
+	assert.Equal(t, "1591784694", args[5])
 }

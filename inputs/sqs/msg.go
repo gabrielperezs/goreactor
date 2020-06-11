@@ -18,7 +18,7 @@ func (m *Msg) Body() []byte {
 	return m.B
 }
 
-// CreationTimestamp will return the creation timestamp for the message
-func (m *Msg) CreationTimestamp() int64 {
+// CreationTimestampMilliseconds will return the creation timestamp for the message
+func (m *Msg) CreationTimestampMilliseconds() int64 {
 	return m.SentTimestamp
 }

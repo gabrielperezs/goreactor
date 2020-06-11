@@ -121,16 +121,26 @@ func (o *Cmd) findReplaceReturningSlice(msg lib.Msg, s string) []string {
 	return values
 }
 
+func (o *Cmd) replaceVariablesInArgs(msg lib.Msg, args []string) {
+	for i := 0; i < len(args); i++ {
+		if strings.Contains(args[i], "${CreationTimestampMilliseconds}") {
+			args[i] = strings.Replace(args[i], "${CreationTimestampMilliseconds}",
+				strconv.FormatInt(msg.CreationTimestampMilliseconds(), 10), -1)
+		}
+		if strings.Contains(args[i], "${CreationTimestampSeconds}") {
+			var milliSecondsInSecond int64 = 1000
+			args[i] = strings.Replace(args[i], "${CreationTimestampSeconds}",
+				strconv.FormatInt(msg.CreationTimestampMilliseconds()/milliSecondsInSecond, 10), -1)
+		}
+	}
+}
+
 func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 	var args []string
 	for _, parse := range o.args {
 		args = append(args, o.findReplaceReturningSlice(msg, parse)...)
 	}
-	for i := 0; i < len(args); i++ {
-		if strings.Contains(args[i], "${CreationTimestamp}") {
-			args[i] = strings.Replace(args[i], "${CreationTimestamp}", strconv.FormatInt(msg.CreationTimestamp(), 10), -1)
-		}
-	}
+	o.replaceVariablesInArgs(msg, args)
 	return args
 }
 
