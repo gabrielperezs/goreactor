@@ -37,6 +37,32 @@ Substitutions in args entry in the config file
     - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
 
+Execute as a specific user
+--------------------------
+
+It may be desired to execute some commands as a specific user.
+
+NOTE: that this only works in unix or unix like systems and have only been tested in linux. In other OS, this will be ignored.
+
+In order to do so, each [[reactor]] entry may have a `user` value defined with the desired user.
+The env will be empty (only containing the HOME - which can be overridden) unless you specify it in a `env` section
+that will only be used if `user` is defined.
+
+```toml
+[[reactor]]
+# (...) All the desired values
+user = "john"
+env = [
+"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+"AWS_PROFILE=stage"
+]
+```
+
+This would run the reactor using john user and 2 environ: HOME set to the home defined for the john user,
+PATH defined to "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" and AWS_PROFILE set to "stage"
+
+**DO NOT USE SET THE SETUID BIT FOR GOREACTOR!!!!**
+
 Usage case, message from SQS
 ===========================
 
