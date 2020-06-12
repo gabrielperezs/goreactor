@@ -48,7 +48,7 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			}
 		case "user":
 			o.user = v.(string)
-		case "environs", "environment", "env":
+		case "env":
 			for _, n := range v.([]interface{}) {
 				o.environment = append(o.environment, n.(string))
 			}
