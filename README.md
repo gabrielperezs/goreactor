@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/gabrielperezs/goreactor.svg?branch=master)](https://travis-ci.org/gabrielperezs/goreactor) [![Go Report Card](https://goreportcard.com/badge/github.com/gabrielperezs/goreactor)](https://goreportcard.com/report/github.com/gabrielperezs/goreactor)
+![Go](https://github.com/gabrielperezs/goreactor/workflows/Go/badge.svg?branch=master)
 
 Goreactor, trigger a message and execute commands
 =================================================
