@@ -15,7 +15,7 @@ func Get(cfg interface{}) (lib.LogStream, error) {
 	var ok bool
 
 	if c, ok = cfg.(map[string]interface{}); !ok {
-		return nil, fmt.Errorf("Can't read the configuration")
+		return nil, fmt.Errorf("Can't read the configuration (hint: Logstreams)")
 	}
 
 	for k, v := range c {

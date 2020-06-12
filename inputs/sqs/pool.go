@@ -3,6 +3,7 @@ package sqs
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gabrielperezs/goreactor/lib"
 )
+
+var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSentTimestamp
 
 var connPool sync.Map
 
@@ -92,6 +95,7 @@ func (p *sqsListen) listen() {
 			QueueUrl:            aws.String(p.URL),
 			MaxNumberOfMessages: aws.Int64(maxNumberOfMessages),
 			WaitTimeSeconds:     aws.Int64(waitTimeSeconds),
+			AttributeNames: []*string{&MessageSystemAttributeNameSentTimestamp},
 		}
 
 		resp, err := p.svc.ReceiveMessage(params)
@@ -106,6 +110,12 @@ func (p *sqsListen) listen() {
 			// Flag to delete the message if don't match with at least one reactor condition
 			atLeastOneValid := false
 
+			timestamp, ok := msg.Attributes[sqs.MessageSystemAttributeNameSentTimestamp]
+			var sentTimestamp int64
+			if ok && timestamp != nil {
+				sentTimestamp, _ = strconv.ParseInt(*timestamp, 10, 64)
+			}
+
 			m := &Msg{
 				SQS: p.svc,
 				B:   []byte(*msg.Body),
@@ -113,7 +123,8 @@ func (p *sqsListen) listen() {
 					Id:            msg.MessageId,
 					ReceiptHandle: msg.ReceiptHandle,
 				},
-				URL: aws.String(p.URL),
+				URL:           aws.String(p.URL),
+				SentTimestamp: sentTimestamp,
 			}
 
 			jsonParsed, err := gabs.ParseJSON(m.B)
