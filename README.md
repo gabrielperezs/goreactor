@@ -29,6 +29,8 @@ Substitutions in args entry in the config file
 
     Variables will be substituted in the arguments if the variable is in the following list. (This can also come from an expanded array)
 
+    NOTE: Variables are case sensitive and curly brackets are mandatory
+
     Currently, we have the following variables:
     - `CreationTimestampMilliseconds` is the message creation time with in milliseconds
     - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
