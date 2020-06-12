@@ -52,12 +52,13 @@ that will only be used if `user` is defined.
 # (...) All the desired values
 user = "john"
 env = [
-"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+"AWS_PROFILE=stage"
 ]
 ```
 
-This would run the reactor using john user and 2 environ: HOME set to the home defined for the john user and
-PATH defined to "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+This would run the reactor using john user and 2 environ: HOME set to the home defined for the john user,
+PATH defined to "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" and AWS_PROFILE set to "stage"
 
 **DO NOT USE SET THE SETUID BIT FOR GOREACTOR!!!!**
 
