@@ -35,9 +35,9 @@ jobs:
     - name: Build
       run: go build -o goreactor -v .
 
-    - name: Zip the file
+    - name: Zip
       run: |
-        zip --junk-paths goreactor README.md
+        zip --junk-paths goreactor goreactor README.md
 
     - name: Create Release
       id: create_release
