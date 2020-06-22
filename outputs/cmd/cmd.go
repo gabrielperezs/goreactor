@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -14,19 +15,20 @@ import (
 	"github.com/savaki/jq"
 )
 
-var (
-	maximumCmdTimeLive = 10 * time.Minute
+const (
+	defaultMaximumCmdTimeLive = 10 * time.Minute
 )
 
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r           *lib.Reactor
-	cmd         string
-	user        string
-	environment []string
-	args        []string
-	cond        map[string]*regexp.Regexp
+	r                             *lib.Reactor
+	cmd                           string
+	user                          string
+	environment                   []string
+	args                          []string
+	cond                          map[string]*regexp.Regexp
+	maximumCmdTimeLive            time.Duration
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
@@ -59,9 +61,19 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 				}
 
 			}
+		case strings.ToLower("maximumCmdTimeLive"):
+			var err error
+			o.maximumCmdTimeLive, err = time.ParseDuration(v.(string))
+			if err != nil {
+				log.Print(err)
+				o.maximumCmdTimeLive = defaultMaximumCmdTimeLive
+			}
 		}
 	}
 
+	if o.maximumCmdTimeLive == 0 {
+		o.maximumCmdTimeLive = defaultMaximumCmdTimeLive
+	}
 	return o, nil
 }
 
@@ -154,7 +166,7 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 
 	rl.Label = o.findReplace(msg, o.r.Label)
 
-	ctx, cancel := context.WithTimeout(context.Background(), maximumCmdTimeLive)
+	ctx, cancel := context.WithTimeout(context.Background(), o.maximumCmdTimeLive)
 	defer cancel()
 
 	var c *exec.Cmd
