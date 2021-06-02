@@ -38,7 +38,7 @@ type ReactorLog struct {
 	Label     string  `json:",omitempty"`
 	RID       uint64  `json:",omitempty"`
 	TID       uint64  `json:",omitempty"`
-	Line      uint64  `json:",omitempty"`
+	Line      uint64 // Do not omit line number on line 0
 	Output    string  `json:",omitempty"`
 	Status    string  `json:",omitempty"`
 	Error     string  `json:",omitempty"`
