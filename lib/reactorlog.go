@@ -38,6 +38,7 @@ type ReactorLog struct {
 	Label     string  `json:",omitempty"`
 	RID       uint64  `json:",omitempty"`
 	TID       uint64  `json:",omitempty"`
+	Line      uint64  `json:",omitempty"`
 	Output    string  `json:",omitempty"`
 	Status    string  `json:",omitempty"`
 	Error     string  `json:",omitempty"`
@@ -101,6 +102,7 @@ func (rl *ReactorLog) printJSON() {
 		ls.Send(b)
 	}
 	rl.Output = ""
+	rl.Line++
 }
 
 func (rl *ReactorLog) reset() {
@@ -108,6 +110,7 @@ func (rl *ReactorLog) reset() {
 	rl.Label = ""
 	rl.RID = 0
 	rl.TID = 0
+	rl.Line = 0
 	rl.Output = ""
 	rl.Status = ""
 	rl.Error = ""
