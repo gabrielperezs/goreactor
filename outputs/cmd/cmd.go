@@ -188,6 +188,7 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 
 	rl.Start(o.cmd + " " + strings.Join(args, " "))
 	if err := c.Run(); err != nil {
+		rl.Write([]byte("error: " + err.Error()))
 		return err
 	}
 
