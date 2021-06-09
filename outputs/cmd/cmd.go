@@ -186,9 +186,18 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 	c.Stdout = rl
 	c.Stderr = rl
 
-	rl.Start(o.cmd + " " + strings.Join(args, " "))
-	if err := c.Run(); err != nil {
-		rl.Write([]byte("error: " + err.Error()))
+
+
+	if err := c.Start(); err != nil {
+		rl.Write([]byte("error starting process " + o.cmd + " " + strings.Join(args, " ") +": " + err.Error()))
+		return err
+	}
+
+	pid := c.Process.Pid // Since Start returned correctly, c.Process is not null.
+	rl.Start(pid, o.cmd + " " + strings.Join(args, " "))
+
+	if err := c.Wait(); err != nil {
+		rl.Write([]byte("error running process: " + err.Error()))
 		return err
 	}
 
