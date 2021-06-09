@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"strings"
@@ -36,6 +37,7 @@ func NewReactorLog(logStream LogStream, hostname string, rid uint64, tid uint64)
 type ReactorLog struct {
 	Host      string  `json:",omitempty"`
 	Label     string  `json:",omitempty"`
+	Pid       int     `json:",omitempty"`
 	RID       uint64  `json:",omitempty"`
 	TID       uint64  `json:",omitempty"`
 	Line      uint64 // Do not omit line number on line 0
@@ -47,10 +49,31 @@ type ReactorLog struct {
 	st        time.Time
 	w         strings.Builder
 	logStream LogStream
+
+	initialized bool
+
+	buff bytes.Buffer
+
+	sync.Mutex
 }
 
 // Write will be called by the reactor and this bytes will be sent to the general log channel
 func (rl *ReactorLog) Write(b []byte) (int, error) {
+	rl.Lock()
+	defer rl.Unlock()
+	if !rl.initialized {
+		return rl.buff.Write(b)
+	}
+	if rl.buff.Len() > 0 {
+		rl.handleWriteBytes(rl.buff.Bytes())
+		rl.buff.Reset()
+	}
+
+	rl.handleWriteBytes(b)
+	return len(b), nil
+}
+
+func (rl *ReactorLog) handleWriteBytes(b []byte) {
 	for _, l := range b {
 		if l == newLine[0] {
 			rl.printJSON()
@@ -58,26 +81,30 @@ func (rl *ReactorLog) Write(b []byte) (int, error) {
 			rl.w.WriteByte(l)
 		}
 	}
-	return len(b), nil
 }
 
+
 // Start change status and write the initial command
-func (rl *ReactorLog) Start(s string) {
+func (rl *ReactorLog) Start(pid int, s string) {
+	rl.Lock()
+	defer rl.Unlock()
+
+	rl.Pid = pid
+	rl.initialized = true
 	rl.Status = "CMD"
 	rl.w.WriteString(s)
 	rl.printJSON()
 	rl.Status = "RUN"
 }
 
-// WriteStrings is the same as prev function but to receive strings
-func (rl *ReactorLog) WriteStrings(s string) (int, error) {
-	rl.w.WriteString(s)
-	rl.printJSON()
-	return len(s), nil
-}
-
 // Done write in the logs the elapse time for the current execution
 func (rl *ReactorLog) Done(err error) {
+	rl.Lock()
+	defer rl.Unlock()
+	if !rl.initialized {
+		rl.handleWriteBytes(rl.buff.Bytes()) // It was never Started
+	}
+
 	rl.Status = "END"
 	if err != nil {
 		rl.Error = err.Error()
@@ -108,6 +135,7 @@ func (rl *ReactorLog) printJSON() {
 func (rl *ReactorLog) reset() {
 	rl.Host = ""
 	rl.Label = ""
+	rl.Pid = 0
 	rl.RID = 0
 	rl.TID = 0
 	rl.Line = 0
@@ -118,5 +146,6 @@ func (rl *ReactorLog) reset() {
 	rl.Timestamp = 0
 	rl.logStream = nil
 	rl.w.Reset()
+	rl.buff.Reset()
 	reactorLogPool.Put(rl)
 }
