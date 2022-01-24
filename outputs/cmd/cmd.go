@@ -22,13 +22,14 @@ const (
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r                             *lib.Reactor
-	cmd                           string
-	user                          string
-	environment                   []string
-	args                          []string
-	cond                          map[string]*regexp.Regexp
-	maximumCmdTimeLive            time.Duration
+	r                  *lib.Reactor
+	cmd                string
+	user               string
+	workingDirectory   string
+	environment        []string
+	args               []string
+	cond               map[string]*regexp.Regexp
+	maximumCmdTimeLive time.Duration
 }
 
 // NewOrGet create the command struct and fill the parameters needed from the
@@ -50,6 +51,8 @@ func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
 			}
 		case "user":
 			o.user = v.(string)
+		case "workingdirectory":
+			o.workingDirectory = v.(string)
 		case "env":
 			for _, n := range v.([]interface{}) {
 				o.environment = append(o.environment, n.(string))
@@ -182,6 +185,7 @@ func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
 			return err
 		}
 	}
+	c.Dir = o.workingDirectory
 
 	c.Stdout = rl
 	c.Stderr = rl
