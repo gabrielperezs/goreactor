@@ -37,6 +37,11 @@ Substitutions in args entry in the config file
     - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
 
+Set working directory
+---------------------
+
+The working directory of the process can be set with `workingDirectory`.
+
 Execute as a specific user
 --------------------------
 
@@ -121,6 +126,7 @@ cond = [
 cmd = "/usr/local/bin/do-something-with-the-instance"
 args = ["asg=$.AutoScalingGroupName", "instance_id=$.EC2InstanceId"]
 argsjson = true
+workingDirectory = "/path/to/process/wd/"
 ```
 
 
