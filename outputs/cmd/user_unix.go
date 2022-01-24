@@ -1,3 +1,4 @@
+//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
 // +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package cmd
@@ -15,7 +16,7 @@ func setUserToCmd(u string, finalEnv []string, c *exec.Cmd) error {
 	if err != nil {
 		return err
 	}
-	c.Env = append(finalEnv)
+	c.Env = append([]string(nil), finalEnv...)
 	c.SysProcAttr = &syscall.SysProcAttr{}
 	c.SysProcAttr.Credential = userCredential
 	setEnvirons(u, finalEnv, c)
