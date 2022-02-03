@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxNumberOfMessages = 10 // Limit of messages can be read from SQS
+	defaultMaxNumberOfMessages = 10 // Default limit of messages can be read from SQS
 	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
 )
 

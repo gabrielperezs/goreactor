@@ -55,7 +55,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	}
 
 	if p.MaxNumberOfMessages == 0 {
-		p.MaxNumberOfMessages = maxNumberOfMessages
+		p.MaxNumberOfMessages = defaultMaxNumberOfMessages
 	}
 
 	if p.URL == "" {
