@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactor"
 )
 
 var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSentTimestamp
@@ -34,7 +35,7 @@ type sqsListen struct {
 	broadcastCh sync.Map
 }
 
-func newSQSListen(r *lib.Reactor, c map[string]interface{}) (*sqsListen, error) {
+func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
 
 	p := &sqsListen{
 		done: make(chan struct{}),
@@ -77,7 +78,7 @@ func newSQSListen(r *lib.Reactor, c map[string]interface{}) (*sqsListen, error) 
 	return p, nil
 }
 
-func (p *sqsListen) AddOrUpdate(r *lib.Reactor) {
+func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
 	p.broadcastCh.Store(r, true)
 }
 
@@ -95,7 +96,7 @@ func (p *sqsListen) listen() {
 			QueueUrl:            aws.String(p.URL),
 			MaxNumberOfMessages: aws.Int64(maxNumberOfMessages),
 			WaitTimeSeconds:     aws.Int64(waitTimeSeconds),
-			AttributeNames: []*string{&MessageSystemAttributeNameSentTimestamp},
+			AttributeNames:      []*string{&MessageSystemAttributeNameSentTimestamp},
 		}
 
 		resp, err := p.svc.ReceiveMessage(params)
@@ -136,11 +137,11 @@ func (p *sqsListen) listen() {
 			}
 
 			p.broadcastCh.Range(func(k, v interface{}) bool {
-				if err := k.(*lib.Reactor).MatchConditions(m); err != nil {
+				if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
 					return true
 				}
 				atLeastOneValid = true
-				k.(*lib.Reactor).Ch <- m
+				k.(*reactor.Reactor).Ch <- m
 				return true
 			})
 

@@ -6,10 +6,11 @@ import (
 
 	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/gabrielperezs/goreactor/outputs/cmd"
+	"github.com/gabrielperezs/goreactor/reactor"
 )
 
 // Get will start the output plugins
-func Get(r *lib.Reactor, cfg interface{}) (lib.Output, error) {
+func Get(r *reactor.Reactor, cfg interface{}) (lib.Output, error) {
 
 	var c map[string]interface{}
 	var ok bool

@@ -27,6 +27,10 @@ func Get(cfg interface{}) (lib.LogStream, error) {
 				return awsfirehose.NewOrGet(c)
 			case "stdout":
 				return localstream.LogStream{}, nil
+			case "", "none":
+				return nil, fmt.Errorf("WARNING: logstream is disabled")
+			default:
+				return nil, fmt.Errorf("ERROR: logstream plugin %s doesn't exist", k)
 			}
 		default:
 			return nil, fmt.Errorf("Plugin don't exists: %s", k)

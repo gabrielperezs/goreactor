@@ -6,10 +6,11 @@ import (
 
 	"github.com/gabrielperezs/goreactor/inputs/sqs"
 	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactor"
 )
 
 // Get will start the input plugins
-func Get(r *lib.Reactor, cfg interface{}) (lib.Input, error) {
+func Get(r *reactor.Reactor, cfg interface{}) (lib.Input, error) {
 
 	var c map[string]interface{}
 	var ok bool

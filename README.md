@@ -53,6 +53,18 @@ streamname = "example-goreactor-logs"
 region = "eu-west-1"
 ```
 
+You can disable logging if you leave logstream empty or set to none.
+Or not defining logstream at all
+```toml
+[logstream]
+logstream = ""
+```
+```toml
+[logstream]
+logstream = "none"
+```
+
+
 The output will be a json per output line with the following format:
 ```json
 {"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":0,"Output":"./print_some_lines_and_exit ","Status":"CMD","Timestamp":1635149955}

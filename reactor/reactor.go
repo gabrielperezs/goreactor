@@ -1,4 +1,4 @@
-package lib
+package reactor
 
 import (
 	"fmt"
@@ -7,6 +7,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactorlog"
+	"github.com/gabrielperezs/goreactor/reactorlog/jsonreactorlog"
+	"github.com/gabrielperezs/goreactor/reactorlog/noopreactorlog"
 )
 
 var (
@@ -20,9 +25,9 @@ var (
 // and the Output plugins. Also contains the configuration for concurrency...
 type Reactor struct {
 	mu           sync.Mutex
-	I            Input
-	O            Output
-	Ch           chan Msg
+	I            lib.Input
+	O            lib.Output
+	Ch           chan lib.Msg
 	id           uint64
 	tid          uint64
 	Concurrent   int
@@ -32,7 +37,7 @@ type Reactor struct {
 	listeners    int64
 	nextDeadline time.Time
 	done         chan bool
-	logStream    LogStream
+	logStream    lib.LogStream
 }
 
 // NewReactor will create a reactor with the configuration
@@ -46,7 +51,7 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	r.Reload(icfg)
 
-	r.Ch = make(chan Msg, r.Concurrent)
+	r.Ch = make(chan lib.Msg, r.Concurrent)
 
 	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
 
@@ -85,7 +90,7 @@ func (r *Reactor) Reload(icfg interface{}) {
 }
 
 // SetLogStreams define what streams use for the log
-func (r *Reactor) SetLogStreams(lg LogStream) error {
+func (r *Reactor) SetLogStreams(lg lib.LogStream) error {
 	r.logStream = lg
 	return nil
 }
@@ -97,7 +102,7 @@ func (r *Reactor) SetHostname(name string) error {
 }
 
 // MatchConditions will call to the MatchConditions of the Output
-func (r *Reactor) MatchConditions(msg Msg) error {
+func (r *Reactor) MatchConditions(msg lib.Msg) error {
 	return r.O.MatchConditions(msg)
 }
 
@@ -156,11 +161,15 @@ func (r *Reactor) deadline() {
 	time.Sleep(sleep)
 }
 
-func (r *Reactor) run(msg Msg) {
+func (r *Reactor) run(msg lib.Msg) {
 	r.deadline()
 
 	var err error
-	rl := NewReactorLog(r.logStream, r.Hostname, r.id, atomic.AddUint64(&r.tid, 1))
+	var rl reactorlog.ReactorLog = noopreactorlog.NoopReactorLog{}
+	if r.logStream != nil {
+		rl = jsonreactorlog.NewJSONReactorLog(r.logStream, r.Hostname, r.id, atomic.AddUint64(&r.tid, 1))
+	}
+
 	err = r.O.Run(rl, msg)
 	defer rl.Done(err)
 

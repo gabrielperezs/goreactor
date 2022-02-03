@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactor"
+	"github.com/gabrielperezs/goreactor/reactorlog"
 	"github.com/savaki/jq"
 )
 
@@ -22,7 +24,7 @@ const (
 // Cmd is the command struct that will be executed after recive the order
 // from the input plugins
 type Cmd struct {
-	r                  *lib.Reactor
+	r                  *reactor.Reactor
 	cmd                string
 	user               string
 	workingDirectory   string
@@ -34,7 +36,7 @@ type Cmd struct {
 
 // NewOrGet create the command struct and fill the parameters needed from the
 // config data.
-func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*Cmd, error) {
+func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*Cmd, error) {
 
 	o := &Cmd{
 		r:    r,
@@ -90,7 +92,7 @@ func (o *Cmd) MatchConditions(msg lib.Msg) error {
 			nv := bytes.Trim(value, "\"")
 
 			if !v.Match(nv) {
-				return lib.ErrInvalidMsgForPlugin
+				return reactor.ErrInvalidMsgForPlugin
 			}
 		}
 	}
@@ -162,12 +164,13 @@ func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 // Run will execute the binary command that was defined in the config.
 // In this function we also define the OUT and ERR data destination of
 // the command.
-func (o *Cmd) Run(rl *lib.ReactorLog, msg lib.Msg) error {
+func (o *Cmd) Run(rl reactorlog.ReactorLog, msg lib.Msg) error {
 
 	var args []string
 	args = o.getReplacedArguments(msg)
 
-	rl.Label = o.findReplace(msg, o.r.Label)
+	logLabel := o.findReplace(msg, o.r.Label)
+	rl.SetLabel(logLabel)
 
 	ctx, cancel := context.WithTimeout(context.Background(), o.maximumCmdTimeLive)
 	defer cancel()

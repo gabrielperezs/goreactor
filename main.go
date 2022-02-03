@@ -13,9 +13,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/gabrielperezs/goreactor/inputs"
-	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/gabrielperezs/goreactor/logstreams"
 	"github.com/gabrielperezs/goreactor/outputs"
+	"github.com/gabrielperezs/goreactor/reactor"
 )
 
 const (
@@ -30,7 +30,7 @@ type Config struct {
 }
 
 var (
-	running    []*lib.Reactor
+	running    []*reactor.Reactor
 	conf       Config
 	configFile string
 	configDir  string
@@ -63,11 +63,11 @@ func start() {
 
 	lg, err := logstreams.Get(conf.LogStream)
 	if err != nil {
-		log.Printf("ERR: %s", err.Error())
+		log.Printf("%s", err.Error())
 	}
 
 	for _, r := range conf.Reactor {
-		nr := lib.NewReactor(r)
+		nr := reactor.NewReactor(r)
 		nr.SetLogStreams(lg)
 		nr.SetHostname(hostname)
 
