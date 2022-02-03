@@ -1,9 +1,11 @@
 package cmd
 
 import (
-	"github.com/gabrielperezs/goreactor/lib"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactor"
+	"github.com/stretchr/testify/assert"
 )
 
 type Msg struct {
@@ -20,7 +22,7 @@ func (m *Msg) CreationTimestampMilliseconds() int64 {
 }
 
 func TestJqReplaceActuallyReplacing(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -50,7 +52,7 @@ func TestJqReplaceActuallyReplacing(t *testing.T) {
 }
 
 func TestFindReplaceReturningSlice(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -83,7 +85,7 @@ func TestFindReplaceReturningSlice(t *testing.T) {
 }
 
 func TestFindReplaceS3Example(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "/usr/local/bin/suppliers-metrics"
@@ -151,7 +153,7 @@ func TestFindReplaceS3Example(t *testing.T) {
 }
 
 func TestFindReplacePassJsonItself(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -163,7 +165,7 @@ func TestFindReplacePassJsonItself(t *testing.T) {
 	}
 
 	var msg lib.Msg = &Msg{
-		B: []byte(`{"first_key": "value"}`),
+		B:  []byte(`{"first_key": "value"}`),
 		ts: 1591784694,
 	}
 
@@ -174,7 +176,7 @@ func TestFindReplacePassJsonItself(t *testing.T) {
 }
 
 func TestFindReplaceExpandArray(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -186,7 +188,7 @@ func TestFindReplaceExpandArray(t *testing.T) {
 	}
 
 	var msg lib.Msg = &Msg{
-		B: []byte(`["first", "second"]`),
+		B:  []byte(`["first", "second"]`),
 		ts: 1591784694,
 	}
 
@@ -200,7 +202,7 @@ func TestFindReplaceExpandArray(t *testing.T) {
 }
 
 func TestFindReplaceVariables(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -212,7 +214,7 @@ func TestFindReplaceVariables(t *testing.T) {
 	}
 
 	var msg lib.Msg = &Msg{
-		B: []byte(""),
+		B:  []byte(""),
 		ts: 1591784694,
 	}
 
@@ -224,7 +226,7 @@ func TestFindReplaceVariables(t *testing.T) {
 }
 
 func TestFindReplaceWithArrayAndVariable(t *testing.T) {
-	var r *lib.Reactor = nil
+	var r *reactor.Reactor = nil
 
 	c := make(map[string]interface{})
 	c["cmd"] = "cmd_name"
@@ -243,7 +245,7 @@ func TestFindReplaceWithArrayAndVariable(t *testing.T) {
 	assert.Equal(t, "$.args...", cmd.args[2])
 
 	var msg lib.Msg = &Msg{
-		B:  []byte(`{"lang":"python3","script":"script01","args":
+		B: []byte(`{"lang":"python3","script":"script01","args":
 						["--timestamp", "${CreationTimestampSeconds}", 
 							"--timestamp-with-milliseconds-precision", "${CreationTimestampMilliseconds}"]}`),
 		ts: 1591784694,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/gabrielperezs/goreactor/logstreams/awsfirehose"
+	"github.com/gabrielperezs/goreactor/logstreams/localstream"
 )
 
 // Get will start the output plugins
@@ -24,9 +25,15 @@ func Get(cfg interface{}) (lib.LogStream, error) {
 			switch strings.ToLower(v.(string)) {
 			case "firehose":
 				return awsfirehose.NewOrGet(c)
+			case "stdout":
+				return localstream.LogStream{}, nil
+			case "", "none":
+				return nil, fmt.Errorf("WARNING: logstream is disabled")
 			default:
-				return nil, fmt.Errorf("Plugin don't exists: %s", k)
+				return nil, fmt.Errorf("ERROR: logstream plugin %s doesn't exist", k)
 			}
+		default:
+			return nil, fmt.Errorf("Plugin don't exists: %s", k)
 		}
 	}
 

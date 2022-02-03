@@ -36,6 +36,44 @@ Substitutions in args entry in the config file
     - `CreationTimestampMilliseconds` is the message creation time with in milliseconds
     - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
+Log outputs to stdout or firehose
+----------------------------------
+
+You can set logging to stdout with
+```toml
+[logstream]
+logstream = "stdout"
+```
+
+You can set logging to firehose with
+```toml
+[logstream]
+logstream = "firehose"
+streamname = "example-goreactor-logs"
+region = "eu-west-1"
+```
+
+You can disable logging if you leave logstream empty or set to none.
+Or not defining logstream at all
+```toml
+[logstream]
+logstream = ""
+```
+```toml
+[logstream]
+logstream = "none"
+```
+
+
+The output will be a json per output line with the following format:
+```json
+{"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":0,"Output":"./print_some_lines_and_exit ","Status":"CMD","Timestamp":1635149955}
+{"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":1,"Output":"first line","Status":"RUN","Timestamp":1635149955}
+{"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":2,"Output":"second line","Status":"RUN","Timestamp":1635149955}
+{"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":3,"Output":"last line","Status":"RUN","Timestamp":1635149955}
+{"Host":"RUNNER_HOSTNAME","Pid":44274,"RID":1,"TID":1,"Line":4,"Status":"END","Elapse":3.067383247,"Timestamp":1635149955}
+```
+
 
 Set working directory
 ---------------------

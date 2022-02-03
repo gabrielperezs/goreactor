@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gabrielperezs/goreactor/lib"
+	"github.com/gabrielperezs/goreactor/reactor"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 
 // SQSPlugin struct for SQS Input plugin
 type SQSPlugin struct {
-	r       *lib.Reactor
+	r       *reactor.Reactor
 	l       *sqsListen
 	URL     string
 	Region  string
@@ -24,7 +25,7 @@ type SQSPlugin struct {
 }
 
 // NewOrGet create a new SQS plugin and relate it with the Reactor
-func NewOrGet(r *lib.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
+func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
 
 	p := &SQSPlugin{
 		r:    r,

@@ -1,4 +1,4 @@
-package lib
+package jsonreactorlog
 
 import (
 	"bytes"
@@ -7,22 +7,24 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gabrielperezs/goreactor/lib"
 )
 
 var (
-	newLine        = []byte("\n")
-	reactorLogPool = &sync.Pool{
+	newLine            = []byte("\n")
+	jsonReactorLogPool = &sync.Pool{
 		New: func() interface{} {
-			return &ReactorLog{
+			return &JSONReactorLog{
 				w: strings.Builder{},
 			}
 		},
 	}
 )
 
-// NewReactorLog create a log method for the reactors
-func NewReactorLog(logStream LogStream, hostname string, rid uint64, tid uint64) *ReactorLog {
-	r := reactorLogPool.Get().(*ReactorLog)
+// NewJSONReactorLog returns a logger that sends json lines to the specified LogStream
+func NewJSONReactorLog(logStream lib.LogStream, hostname string, rid uint64, tid uint64) *JSONReactorLog {
+	r := jsonReactorLogPool.Get().(*JSONReactorLog)
 	r.Host = hostname
 	r.logStream = logStream
 	r.RID = rid
@@ -33,14 +35,20 @@ func NewReactorLog(logStream LogStream, hostname string, rid uint64, tid uint64)
 	return r
 }
 
-// ReactorLog is the struct that will be associate to an specific reactor
-type ReactorLog struct {
+type ReactorLog interface {
+	Write(b []byte) (int, error)
+	Start(pid int, s string)
+	SetLabel(string)
+}
+
+// JSONReactorLog lets you log as json lines.
+type JSONReactorLog struct {
 	Host      string  `json:",omitempty"`
 	Label     string  `json:",omitempty"`
 	Pid       int     `json:",omitempty"`
 	RID       uint64  `json:",omitempty"`
 	TID       uint64  `json:",omitempty"`
-	Line      uint64 // Do not omit line number on line 0
+	Line      uint64  // Do not omit line number on line 0
 	Output    string  `json:",omitempty"`
 	Status    string  `json:",omitempty"`
 	Error     string  `json:",omitempty"`
@@ -48,7 +56,7 @@ type ReactorLog struct {
 	Timestamp int64   `json:",omitempty"`
 	st        time.Time
 	w         strings.Builder
-	logStream LogStream
+	logStream lib.LogStream
 
 	initialized bool
 
@@ -57,8 +65,12 @@ type ReactorLog struct {
 	sync.Mutex
 }
 
+func (rl *JSONReactorLog) SetLabel(value string) {
+	rl.Label = value
+}
+
 // Write will be called by the reactor and this bytes will be sent to the general log channel
-func (rl *ReactorLog) Write(b []byte) (int, error) {
+func (rl *JSONReactorLog) Write(b []byte) (int, error) {
 	rl.Lock()
 	defer rl.Unlock()
 	if !rl.initialized {
@@ -73,7 +85,7 @@ func (rl *ReactorLog) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (rl *ReactorLog) handleWriteBytes(b []byte) {
+func (rl *JSONReactorLog) handleWriteBytes(b []byte) {
 	for _, l := range b {
 		if l == newLine[0] {
 			rl.printJSON()
@@ -83,9 +95,8 @@ func (rl *ReactorLog) handleWriteBytes(b []byte) {
 	}
 }
 
-
 // Start change status and write the initial command
-func (rl *ReactorLog) Start(pid int, s string) {
+func (rl *JSONReactorLog) Start(pid int, s string) {
 	rl.Lock()
 	defer rl.Unlock()
 
@@ -98,7 +109,7 @@ func (rl *ReactorLog) Start(pid int, s string) {
 }
 
 // Done write in the logs the elapse time for the current execution
-func (rl *ReactorLog) Done(err error) {
+func (rl *JSONReactorLog) Done(err error) {
 	rl.Lock()
 	defer rl.Unlock()
 	if !rl.initialized {
@@ -115,7 +126,7 @@ func (rl *ReactorLog) Done(err error) {
 	rl.reset()
 }
 
-func (rl *ReactorLog) printJSON() {
+func (rl *JSONReactorLog) printJSON() {
 	rl.Output = rl.w.String()
 	rl.w.Reset()
 
@@ -132,7 +143,7 @@ func (rl *ReactorLog) printJSON() {
 	rl.Line++
 }
 
-func (rl *ReactorLog) reset() {
+func (rl *JSONReactorLog) reset() {
 	rl.Host = ""
 	rl.Label = ""
 	rl.Pid = 0
@@ -147,5 +158,5 @@ func (rl *ReactorLog) reset() {
 	rl.logStream = nil
 	rl.w.Reset()
 	rl.buff.Reset()
-	reactorLogPool.Put(rl)
+	jsonReactorLogPool.Put(rl)
 }
