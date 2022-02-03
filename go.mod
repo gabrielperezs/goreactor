@@ -3,9 +3,9 @@ module github.com/gabrielperezs/goreactor
 go 1.17
 
 require (
-	github.com/BurntSushi/toml v0.4.1
+	github.com/BurntSushi/toml v1.0.0
 	github.com/Jeffail/gabs v1.4.0
-	github.com/aws/aws-sdk-go v1.40.57
+	github.com/aws/aws-sdk-go v1.42.45
 	github.com/gabrielperezs/monad v0.0.0-20190930103133-261d32f2d7b2 // indirect
 	github.com/gabrielperezs/streamspooler v1.0.0
 	github.com/gallir/bytebufferpool v1.0.0 // indirect

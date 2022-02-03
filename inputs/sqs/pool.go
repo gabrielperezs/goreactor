@@ -22,12 +22,12 @@ var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSent
 var connPool sync.Map
 
 type sqsListen struct {
-	URL     string
-	Region  string
-	Profile string
+	URL                 string
+	Region              string
+	Profile             string
+	MaxNumberOfMessages int64
 
-	sess *session.Session
-	svc  *sqs.SQS
+	svc *sqs.SQS
 
 	exiting uint32
 	done    chan struct{}
@@ -49,7 +49,13 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 			p.Region = v.(string)
 		case "profile":
 			p.Profile = v.(string)
+		case "maxnumberofmessages":
+			p.MaxNumberOfMessages, _ = v.(int64)
 		}
+	}
+
+	if p.MaxNumberOfMessages == 0 {
+		p.MaxNumberOfMessages = defaultMaxNumberOfMessages
 	}
 
 	if p.URL == "" {
@@ -94,7 +100,7 @@ func (p *sqsListen) listen() {
 
 		params := &sqs.ReceiveMessageInput{
 			QueueUrl:            aws.String(p.URL),
-			MaxNumberOfMessages: aws.Int64(maxNumberOfMessages),
+			MaxNumberOfMessages: aws.Int64(p.MaxNumberOfMessages),
 			WaitTimeSeconds:     aws.Int64(waitTimeSeconds),
 			AttributeNames:      []*string{&MessageSystemAttributeNameSentTimestamp},
 		}

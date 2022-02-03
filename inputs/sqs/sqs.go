@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxNumberOfMessages = 10 // Limit of messages can be read from SQS
+	defaultMaxNumberOfMessages = 10 // Default limit of messages can be read from SQS
 	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
 )
 
@@ -20,7 +20,6 @@ type SQSPlugin struct {
 	URL     string
 	Region  string
 	Profile string
-	exiting uint32
 	done    chan struct{}
 }
 
@@ -81,5 +80,4 @@ func (p *SQSPlugin) Put(v lib.Msg) error {
 func (p *SQSPlugin) Exit() {
 	p.l.Exit()
 	connPool.Delete(p.URL)
-	return
 }
