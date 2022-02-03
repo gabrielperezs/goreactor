@@ -20,7 +20,6 @@ type SQSPlugin struct {
 	URL     string
 	Region  string
 	Profile string
-	exiting uint32
 	done    chan struct{}
 }
 
@@ -81,5 +80,4 @@ func (p *SQSPlugin) Put(v lib.Msg) error {
 func (p *SQSPlugin) Exit() {
 	p.l.Exit()
 	connPool.Delete(p.URL)
-	return
 }

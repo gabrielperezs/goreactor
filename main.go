@@ -18,10 +18,6 @@ import (
 	"github.com/gabrielperezs/goreactor/reactor"
 )
 
-const (
-	version = "1.3.3"
-)
-
 // Config contains all the configuration parameters needed
 // by all the plugins and filled with the TOML parser
 type Config struct {
@@ -48,7 +44,6 @@ func main() {
 	if !debug {
 		log.SetFlags(0)
 	}
-	log.Printf("Starting v%s", version)
 
 	go sing()
 	reload()

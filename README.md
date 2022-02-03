@@ -157,6 +157,7 @@ input = "sqs"
 url = "https://sqs.eu-west-1.amazonaws.com/9999999999/testing"
 profile = "default"
 region = "eu-west-1"
+maxNumberOfMessages = 10
 output = "cmd"
 cond = [
     { "$.Event" = "autoscaling:EC2_INSTANCE_LAUNCH" }
