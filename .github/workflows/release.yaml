@@ -27,12 +27,11 @@ jobs:
     - name: Test
       run: go test -v .
 
-    - name: Build
-      run: go build -o goreactor -v .
+    - name: Build linux amd64
+      run: GOOS=linux GOARCH=amd64 go build -o goreactor_amd64 -v .
 
-    - name: Zip
-      run: |
-        zip --junk-paths goreactor goreactor README.md
+    - name: Build linux arm64
+      run: GOOS=linux GOARCH=arm64 go build -o goreactor_arm64 -v .
 
     - name: Create Release
       id: create_release
@@ -45,13 +44,24 @@ jobs:
         draft: false
         prerelease: false
       
-    - name: Upload Release Asset
-      id: upload-release-asset 
+    - name: Upload linux amd64
+      id: upload-release-asset-linux-amd64
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        asset_path: ./goreactor.zip
-        asset_name: goreactor.zip
-        asset_content_type: application/zip
+        asset_path: goreactor_amd64
+        asset_name: goreactor_amd64
+        asset_content_type: application/binary
+
+    - name: Upload linux arm64
+      id: upload-release-asset-linux-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: goreactor_arm64
+        asset_name: goreactor_arm64
+        asset_content_type: application/binary
