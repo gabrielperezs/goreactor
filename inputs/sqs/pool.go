@@ -98,6 +98,7 @@ func (p *sqsListen) listen() {
 
 	for {
 		if atomic.LoadUint32(&p.exiting) > 0 {
+			log.Printf("SQS Listener Stopped %s", p.URL)
 			tries := 0
 			for len(p.pendings) > 0 {
 				time.Sleep(time.Second)
