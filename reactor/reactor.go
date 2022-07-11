@@ -119,6 +119,10 @@ func (r *Reactor) Start() {
 	}
 }
 
+func (r *Reactor) Stop() {
+	r.I.Stop()
+}
+
 // Exit will close the interaction betwean the Input plugin and the Output
 // plugin, and finishing the reactor
 func (r *Reactor) Exit() {

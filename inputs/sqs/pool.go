@@ -172,11 +172,16 @@ func (p *sqsListen) listen() {
 	}
 }
 
-func (p *sqsListen) Exit() error {
+func (p *sqsListen) Stop() {
 	if atomic.LoadUint32(&p.exiting) > 0 {
-		return nil
+		return
 	}
+	log.Printf("SQS Exiting %s", p.URL)
 	atomic.AddUint32(&p.exiting, 1)
+}
+
+func (p *sqsListen) Exit() error {
+	p.Stop()
 	<-p.done
 	log.Printf("SQS EXIT %s", p.URL)
 	return nil

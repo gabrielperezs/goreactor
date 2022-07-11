@@ -82,3 +82,8 @@ func (p *SQSPlugin) Exit() {
 	p.l.Exit()
 	connPool.Delete(p.URL)
 }
+
+// Stops listening
+func (p *SQSPlugin) Stop() {
+	p.l.Stop()
+}
