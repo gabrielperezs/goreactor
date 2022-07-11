@@ -93,7 +93,11 @@ func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
 
 func (p *sqsListen) listen() {
 	defer func() {
-		p.done <- struct{}{}
+		p.broadcastCh.Range(func(k, v interface{}) bool {
+			p.done <- struct{}{}
+			return true
+		})
+		log.Printf("SQS EXIT %s", p.URL)
 	}()
 
 	for {
@@ -184,7 +188,6 @@ func (p *sqsListen) Stop() {
 func (p *sqsListen) Exit() error {
 	p.Stop()
 	<-p.done
-	log.Printf("SQS EXIT %s", p.URL)
 	return nil
 }
 

@@ -166,6 +166,8 @@ func (r *Reactor) deadline() {
 }
 
 func (r *Reactor) run(msg lib.Msg) {
+	defer r.I.Done(msg) // To remove this message from the pending message queue
+
 	r.deadline()
 
 	var err error
@@ -176,7 +178,6 @@ func (r *Reactor) run(msg lib.Msg) {
 
 	err = r.O.Run(rl, msg)
 	defer rl.Done(err)
-	defer r.I.Done(msg)
 
 	if err == nil {
 		if err := r.I.Delete(msg); err != nil {
