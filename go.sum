@@ -13,6 +13,8 @@ github.com/gabrielperezs/streamspooler v1.0.0 h1:ugRDUMBsBfp2S1ZK4ue5vfjG279LVaz
 github.com/gabrielperezs/streamspooler v1.0.0/go.mod h1:lIxIDkZaqWZJ/OtEubTSO2ijLR5rLpOd08v7CdaAWw0=
 github.com/gallir/bytebufferpool v1.0.0 h1:2nDg/Hze/DwX7AAW/9iLph6mIWDH2FP96iZQvWJoSVE=
 github.com/gallir/bytebufferpool v1.0.0/go.mod h1:EvF/25bM1AJztIQoy+py9ti+T/nOmZF21mHad2QV9p4=
+github.com/gallir/dynsemaphore v1.0.1 h1:P93a9ZzOjTBMvUUmVxqhugKuwgI385qcEWyCEA7QbSs=
+github.com/gallir/dynsemaphore v1.0.1/go.mod h1:9in45hJ6qFGIiaaU3qcXANhCakZPd1vLh7kLQBDU/fw=
 github.com/gallir/smart-relayer v8.8.6+incompatible h1:LmpHfJQEA7YAyYD6YSDIhlPzgVMCllxRWmnAw375Epo=
 github.com/gallir/smart-relayer v8.8.6+incompatible/go.mod h1:CqF474xSwX+5nKfjqf0ukBoNCiIf/qlDwLdkJdtQbXw=
 github.com/golang/snappy v0.0.2/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
