@@ -73,7 +73,6 @@ func (p *SQSPlugin) Delete(v lib.Msg) error {
 
 // Put is not needed in SQS
 func (p *SQSPlugin) Put(v lib.Msg) error {
-	p.l.DelPending(v)
 	return nil
 }
 
@@ -86,4 +85,8 @@ func (p *SQSPlugin) Exit() {
 // Stops listening
 func (p *SQSPlugin) Stop() {
 	p.l.Stop()
+}
+
+func (p *SQSPlugin) Done(v lib.Msg) {
+	p.l.Done(v)
 }

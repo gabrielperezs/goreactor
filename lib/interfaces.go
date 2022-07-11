@@ -6,8 +6,9 @@ import "github.com/gabrielperezs/goreactor/reactorlog"
 type Input interface {
 	Put(m Msg) error
 	Delete(m Msg) error
-	Stop() // Stop accepting input
-	Exit() // Exit from the loop
+	Done(m Msg) // Input was processed and don't need to keep it as pending
+	Stop()      // Stop accepting input
+	Exit()      // Exit from the loop
 }
 
 // Output is the interface for the Output plugins

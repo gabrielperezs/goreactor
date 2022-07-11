@@ -176,6 +176,7 @@ func (r *Reactor) run(msg lib.Msg) {
 
 	err = r.O.Run(rl, msg)
 	defer rl.Done(err)
+	defer r.I.Done(msg)
 
 	if err == nil {
 		if err := r.I.Delete(msg); err != nil {

@@ -160,7 +160,7 @@ func (p *sqsListen) listen() {
 				}
 				atLeastOneValid = true
 				k.(*reactor.Reactor).Ch <- m
-				p.AddPending(m)
+				p.addPending(m)
 				return true
 			})
 
@@ -204,11 +204,10 @@ func (p *sqsListen) Delete(v lib.Msg) (err error) {
 	}); err != nil {
 		log.Printf("ERROR: %s - %s", *msg.URL, err)
 	}
-	p.DelPending(v)
 	return
 }
 
-func (p *sqsListen) AddPending(m lib.Msg) {
+func (p *sqsListen) addPending(m lib.Msg) {
 	p.Lock()
 	defer p.Unlock()
 	msg, ok := m.(*Msg)
@@ -225,7 +224,8 @@ func (p *sqsListen) AddPending(m lib.Msg) {
 	p.pendings[id] = v
 }
 
-func (p *sqsListen) DelPending(m lib.Msg) {
+// Done removes the message from the pending queue.
+func (p *sqsListen) Done(m lib.Msg) {
 	p.Lock()
 	defer p.Unlock()
 	msg, ok := m.(*Msg)
