@@ -22,6 +22,7 @@ var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSent
 var connPool sync.Map
 
 type sqsListen struct {
+	sync.Mutex
 	URL                 string
 	Region              string
 	Profile             string
@@ -33,6 +34,7 @@ type sqsListen struct {
 	done    chan struct{}
 
 	broadcastCh sync.Map
+	pendings    map[string]int
 }
 
 func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
@@ -95,6 +97,14 @@ func (p *sqsListen) listen() {
 
 	for {
 		if atomic.LoadUint32(&p.exiting) > 0 {
+			tries := 0
+			for len(p.pendings) > 0 {
+				time.Sleep(time.Second)
+				tries++
+				if tries > 120 {
+					break
+				}
+			}
 			return
 		}
 
@@ -148,6 +158,7 @@ func (p *sqsListen) listen() {
 				}
 				atLeastOneValid = true
 				k.(*reactor.Reactor).Ch <- m
+				p.AddPending(m)
 				return true
 			})
 
@@ -186,5 +197,44 @@ func (p *sqsListen) Delete(v lib.Msg) (err error) {
 	}); err != nil {
 		log.Printf("ERROR: %s - %s", *msg.URL, err)
 	}
+	p.DelPending(v)
 	return
+}
+
+func (p *sqsListen) AddPending(m lib.Msg) {
+	p.Lock()
+	defer p.Unlock()
+	msg, ok := m.(*Msg)
+	if !ok {
+		return
+	}
+	id := *msg.M.ReceiptHandle
+	v, ok := p.pendings[id]
+	if ok {
+		v += 1
+	} else {
+		v = 1
+	}
+	p.pendings[id] = v
+}
+
+func (p *sqsListen) DelPending(m lib.Msg) {
+	p.Lock()
+	defer p.Unlock()
+	msg, ok := m.(*Msg)
+	if !ok {
+		return
+	}
+	id := *msg.M.ReceiptHandle
+
+	v, ok := p.pendings[id]
+	if !ok {
+		return
+	}
+	if v <= 1 {
+		delete(p.pendings, id)
+		return
+	}
+	v -= 1
+	p.pendings[id] = v
 }

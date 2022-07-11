@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultMaxNumberOfMessages = 10 // Default limit of messages can be read from SQS
-	waitTimeSeconds     = 15 // Seconds to keep open the connection to SQS
+	waitTimeSeconds            = 15 // Seconds to keep open the connection to SQS
 )
 
 // SQSPlugin struct for SQS Input plugin
@@ -73,6 +73,7 @@ func (p *SQSPlugin) Delete(v lib.Msg) error {
 
 // Put is not needed in SQS
 func (p *SQSPlugin) Put(v lib.Msg) error {
+	p.l.DelPending(v)
 	return nil
 }
 
