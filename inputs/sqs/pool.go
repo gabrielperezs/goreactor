@@ -102,7 +102,7 @@ func (p *sqsListen) listen() {
 			for len(p.pendings) > 0 {
 				time.Sleep(time.Second)
 				tries++
-				if tries > 120 {
+				if tries > 120 { // Wait no more than 120 seconds, the usual max
 					break
 				}
 			}
@@ -176,8 +176,8 @@ func (p *sqsListen) Stop() {
 	if atomic.LoadUint32(&p.exiting) > 0 {
 		return
 	}
-	log.Printf("SQS Exiting %s", p.URL)
 	atomic.AddUint32(&p.exiting, 1)
+	log.Printf("SQS Input Stopping %s", p.URL)
 }
 
 func (p *sqsListen) Exit() error {
