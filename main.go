@@ -193,6 +193,11 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 		if c.LogStream == nil && configTemp.LogStream != nil {
 			c.LogStream = configTemp.LogStream
 		}
+
+		// Read first MaxConcurrency only
+		if c.MaxConcurrency == 0 && configTemp.MaxConcurrency != 0 {
+			c.MaxConcurrency = configTemp.MaxConcurrency
+		}
 	}
 	return c, nil
 }
