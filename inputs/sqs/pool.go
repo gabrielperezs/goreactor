@@ -78,6 +78,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 		return nil, err
 	}
 	p.broadcastCh.Store(r, true)
+	p.pendings = make(map[string]int)
 
 	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
 
