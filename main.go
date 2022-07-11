@@ -94,6 +94,9 @@ func exit() {
 
 func restart() {
 	for _, r := range running {
+		r.Stop() // To force to stop receiving input (SQS)
+	}
+	for _, r := range running {
 		r.Exit()
 	}
 	running = nil
