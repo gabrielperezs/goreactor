@@ -119,6 +119,10 @@ func (r *Reactor) Start() {
 	}
 }
 
+func (r *Reactor) Stop() {
+	r.I.Stop()
+}
+
 // Exit will close the interaction betwean the Input plugin and the Output
 // plugin, and finishing the reactor
 func (r *Reactor) Exit() {
@@ -162,6 +166,8 @@ func (r *Reactor) deadline() {
 }
 
 func (r *Reactor) run(msg lib.Msg) {
+	defer r.I.Done(msg) // To remove this message from the pending message queue
+
 	r.deadline()
 
 	var err error

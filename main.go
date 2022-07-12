@@ -84,12 +84,18 @@ func start() {
 
 func exit() {
 	for _, r := range running {
+		r.Stop() // To force to stop receiving input (SQS)
+	}
+	for _, r := range running {
 		r.Exit()
 	}
 	chMain <- true
 }
 
 func restart() {
+	for _, r := range running {
+		r.Stop() // To force to stop receiving input (SQS)
+	}
 	for _, r := range running {
 		r.Exit()
 	}

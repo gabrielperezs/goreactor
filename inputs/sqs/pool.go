@@ -22,6 +22,7 @@ var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSent
 var connPool sync.Map
 
 type sqsListen struct {
+	sync.Mutex
 	URL                 string
 	Region              string
 	Profile             string
@@ -33,6 +34,7 @@ type sqsListen struct {
 	done    chan struct{}
 
 	broadcastCh sync.Map
+	pendings    map[string]int
 }
 
 func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
@@ -76,6 +78,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 		return nil, err
 	}
 	p.broadcastCh.Store(r, true)
+	p.pendings = make(map[string]int)
 
 	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
 
@@ -90,11 +93,24 @@ func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
 
 func (p *sqsListen) listen() {
 	defer func() {
-		p.done <- struct{}{}
+		p.broadcastCh.Range(func(k, v interface{}) bool {
+			p.done <- struct{}{}
+			return true
+		})
+		log.Printf("SQS EXIT %s", p.URL)
 	}()
 
 	for {
 		if atomic.LoadUint32(&p.exiting) > 0 {
+			log.Printf("SQS Listener Stopped %s", p.URL)
+			tries := 0
+			for len(p.pendings) > 0 {
+				time.Sleep(time.Second)
+				tries++
+				if tries > 120 { // Wait no more than 120 seconds, the usual max
+					break
+				}
+			}
 			return
 		}
 
@@ -148,6 +164,7 @@ func (p *sqsListen) listen() {
 				}
 				atLeastOneValid = true
 				k.(*reactor.Reactor).Ch <- m
+				p.addPending(m)
 				return true
 			})
 
@@ -160,13 +177,17 @@ func (p *sqsListen) listen() {
 	}
 }
 
-func (p *sqsListen) Exit() error {
+func (p *sqsListen) Stop() {
 	if atomic.LoadUint32(&p.exiting) > 0 {
-		return nil
+		return
 	}
 	atomic.AddUint32(&p.exiting, 1)
+	log.Printf("SQS Input Stopping %s", p.URL)
+}
+
+func (p *sqsListen) Exit() error {
+	p.Stop()
 	<-p.done
-	log.Printf("SQS EXIT %s", p.URL)
 	return nil
 }
 
@@ -187,4 +208,43 @@ func (p *sqsListen) Delete(v lib.Msg) (err error) {
 		log.Printf("ERROR: %s - %s", *msg.URL, err)
 	}
 	return
+}
+
+func (p *sqsListen) addPending(m lib.Msg) {
+	p.Lock()
+	defer p.Unlock()
+	msg, ok := m.(*Msg)
+	if !ok {
+		return
+	}
+	id := *msg.M.ReceiptHandle
+	v, ok := p.pendings[id]
+	if ok {
+		v += 1
+	} else {
+		v = 1
+	}
+	p.pendings[id] = v
+}
+
+// Done removes the message from the pending queue.
+func (p *sqsListen) Done(m lib.Msg) {
+	p.Lock()
+	defer p.Unlock()
+	msg, ok := m.(*Msg)
+	if !ok {
+		return
+	}
+	id := *msg.M.ReceiptHandle
+
+	v, ok := p.pendings[id]
+	if !ok {
+		return
+	}
+	if v <= 1 {
+		delete(p.pendings, id)
+		return
+	}
+	v -= 1
+	p.pendings[id] = v
 }
