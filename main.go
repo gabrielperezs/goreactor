@@ -16,13 +16,15 @@ import (
 	"github.com/gabrielperezs/goreactor/logstreams"
 	"github.com/gabrielperezs/goreactor/outputs"
 	"github.com/gabrielperezs/goreactor/reactor"
+	"github.com/gallir/dynsemaphore"
 )
 
 // Config contains all the configuration parameters needed
 // by all the plugins and filled with the TOML parser
 type Config struct {
-	LogStream interface{}
-	Reactor   []interface{}
+	MaxConcurrency int
+	LogStream      interface{}
+	Reactor        []interface{}
 }
 
 var (
@@ -61,10 +63,16 @@ func start() {
 		log.Printf("%s", err.Error())
 	}
 
+	dynsem := dynsemaphore.New(conf.MaxConcurrency)
+	if conf.MaxConcurrency != 0 {
+		log.Println("Max Concurrency set to", dynsem.GetConcurrency())
+	}
+
 	for _, r := range conf.Reactor {
 		nr := reactor.NewReactor(r)
 		nr.SetLogStreams(lg)
 		nr.SetHostname(hostname)
+		nr.SetConcurrencyControl(dynsem)
 
 		var err error
 		nr.I, err = inputs.Get(nr, r)
@@ -184,6 +192,11 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 		// Read first LogStream only
 		if c.LogStream == nil && configTemp.LogStream != nil {
 			c.LogStream = configTemp.LogStream
+		}
+
+		// Read first MaxConcurrency only
+		if c.MaxConcurrency == 0 && configTemp.MaxConcurrency != 0 {
+			c.MaxConcurrency = configTemp.MaxConcurrency
 		}
 	}
 	return c, nil

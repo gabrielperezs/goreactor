@@ -30,8 +30,10 @@ type sqsListen struct {
 
 	svc *sqs.SQS
 
-	exiting uint32
-	done    chan struct{}
+	exiting  uint32
+	exited   bool
+	exitedMu sync.Mutex
+	done     chan bool
 
 	broadcastCh sync.Map
 	pendings    map[string]int
@@ -40,7 +42,7 @@ type sqsListen struct {
 func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
 
 	p := &sqsListen{
-		done: make(chan struct{}),
+		done: make(chan bool),
 	}
 
 	for k, v := range c {
@@ -93,10 +95,7 @@ func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
 
 func (p *sqsListen) listen() {
 	defer func() {
-		p.broadcastCh.Range(func(k, v interface{}) bool {
-			p.done <- struct{}{}
-			return true
-		})
+		p.done <- true
 		log.Printf("SQS EXIT %s", p.URL)
 	}()
 
@@ -130,51 +129,64 @@ func (p *sqsListen) listen() {
 		}
 
 		for _, msg := range resp.Messages {
-			// Flag to delete the message if don't match with at least one reactor condition
-			atLeastOneValid := false
-
-			timestamp, ok := msg.Attributes[sqs.MessageSystemAttributeNameSentTimestamp]
-			var sentTimestamp int64
-			if ok && timestamp != nil {
-				sentTimestamp, _ = strconv.ParseInt(*timestamp, 10, 64)
-			}
-
-			m := &Msg{
-				SQS: p.svc,
-				B:   []byte(*msg.Body),
-				M: &sqs.DeleteMessageBatchRequestEntry{
-					Id:            msg.MessageId,
-					ReceiptHandle: msg.ReceiptHandle,
-				},
-				URL:           aws.String(p.URL),
-				SentTimestamp: sentTimestamp,
-			}
-
-			jsonParsed, err := gabs.ParseJSON(m.B)
-			if err == nil && jsonParsed.Exists("Message") {
-				s := strings.Replace(jsonParsed.S("Message").String(), "\\\"", "\"", -1)
-				s = strings.TrimPrefix(s, "\"")
-				s = strings.TrimSuffix(s, "\"")
-				m.B = []byte(s)
-			}
-
-			p.broadcastCh.Range(func(k, v interface{}) bool {
-				if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
-					return true
-				}
-				atLeastOneValid = true
-				k.(*reactor.Reactor).Ch <- m
-				p.addPending(m)
-				return true
-			})
-
-			// We delete this message if is invalid for all the reactors
-			if !atLeastOneValid {
-				log.Printf("Invalid message from %s, deleted: %s", p.URL, *msg.Body)
-				p.Delete(m)
-			}
+			p.deliver(msg)
 		}
 	}
+}
+
+func (p *sqsListen) deliver(msg *sqs.Message) {
+	// Flag to delete the message if don't match with at least one reactor condition
+	atLeastOneValid := false
+
+	timestamp, ok := msg.Attributes[sqs.MessageSystemAttributeNameSentTimestamp]
+	var sentTimestamp int64
+	if ok && timestamp != nil {
+		sentTimestamp, _ = strconv.ParseInt(*timestamp, 10, 64)
+	}
+
+	m := &Msg{
+		SQS: p.svc,
+		B:   []byte(*msg.Body),
+		M: &sqs.DeleteMessageBatchRequestEntry{
+			Id:            msg.MessageId,
+			ReceiptHandle: msg.ReceiptHandle,
+		},
+		URL:           aws.String(p.URL),
+		SentTimestamp: sentTimestamp,
+	}
+
+	jsonParsed, err := gabs.ParseJSON(m.B)
+	if err == nil && jsonParsed.Exists("Message") {
+		s := strings.Replace(jsonParsed.S("Message").String(), "\\\"", "\"", -1)
+		s = strings.TrimPrefix(s, "\"")
+		s = strings.TrimSuffix(s, "\"")
+		m.B = []byte(s)
+	}
+
+	wg := sync.WaitGroup{}
+	p.broadcastCh.Range(func(k, v interface{}) bool {
+		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
+			return true
+		}
+		atLeastOneValid = true
+		// Send the message in parallel to avoid blocking all messages
+		// due to a long standing reactor that has its chan full
+		wg.Add(1)
+		go func(m *Msg) {
+			k.(*reactor.Reactor).Ch <- m
+			wg.Done()
+		}(m)
+		p.addPending(m)
+		return true
+	})
+	wg.Wait()
+
+	// We delete this message if is invalid for all the reactors
+	if !atLeastOneValid {
+		log.Printf("Invalid message from %s, deleted: %s", p.URL, *msg.Body)
+		p.Delete(m)
+	}
+
 }
 
 func (p *sqsListen) Stop() {
@@ -186,8 +198,15 @@ func (p *sqsListen) Stop() {
 }
 
 func (p *sqsListen) Exit() error {
+	p.exitedMu.Lock()
+	defer p.exitedMu.Unlock()
+
+	if p.exited {
+		return nil
+	}
+
 	p.Stop()
-	<-p.done
+	p.exited = <-p.done
 	return nil
 }
 

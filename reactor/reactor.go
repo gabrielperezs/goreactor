@@ -12,6 +12,7 @@ import (
 	"github.com/gabrielperezs/goreactor/reactorlog"
 	"github.com/gabrielperezs/goreactor/reactorlog/jsonreactorlog"
 	"github.com/gabrielperezs/goreactor/reactorlog/noopreactorlog"
+	"github.com/gallir/dynsemaphore"
 )
 
 var (
@@ -34,10 +35,10 @@ type Reactor struct {
 	Delay        time.Duration
 	Label        string
 	Hostname     string
-	listeners    int64
 	nextDeadline time.Time
 	done         chan bool
 	logStream    lib.LogStream
+	cc           *dynsemaphore.DynSemaphore
 }
 
 // NewReactor will create a reactor with the configuration
@@ -51,7 +52,10 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	r.Reload(icfg)
 
-	r.Ch = make(chan lib.Msg, r.Concurrent)
+	// There are several listeners for concurrency,
+	// better not to buffer too much to avoid to many message in travel.
+	// Leave 1 for better use of CPU but can be zero
+	r.Ch = make(chan lib.Msg, 1)
 
 	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
 
@@ -93,6 +97,10 @@ func (r *Reactor) Reload(icfg interface{}) {
 func (r *Reactor) SetLogStreams(lg lib.LogStream) error {
 	r.logStream = lg
 	return nil
+}
+
+func (r *Reactor) SetConcurrencyControl(cc *dynsemaphore.DynSemaphore) {
+	r.cc = cc
 }
 
 // SetHostname define the hostname
@@ -169,6 +177,12 @@ func (r *Reactor) run(msg lib.Msg) {
 	defer r.I.Done(msg) // To remove this message from the pending message queue
 
 	r.deadline()
+
+	cc := r.cc
+	if cc != nil {
+		cc.Access()
+		defer cc.Release()
+	}
 
 	var err error
 	var rl reactorlog.ReactorLog = noopreactorlog.NoopReactorLog{}
