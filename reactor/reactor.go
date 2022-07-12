@@ -35,7 +35,6 @@ type Reactor struct {
 	Delay        time.Duration
 	Label        string
 	Hostname     string
-	listeners    int64
 	nextDeadline time.Time
 	done         chan bool
 	logStream    lib.LogStream
@@ -53,7 +52,10 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	r.Reload(icfg)
 
-	r.Ch = make(chan lib.Msg, r.Concurrent)
+	// There are several listeners for concurrency,
+	// better not to buffer too much to avoid to many message in travel.
+	// Leave 1 for better use of CPU but can be zero
+	r.Ch = make(chan lib.Msg, 1)
 
 	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
 
