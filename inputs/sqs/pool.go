@@ -3,6 +3,7 @@ package sqs
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/gabrielperezs/goreactor/reactor"
+	"github.com/gallir/dynsemaphore"
 )
 
 var MessageSystemAttributeNameSentTimestamp = sqs.MessageSystemAttributeNameSentTimestamp
@@ -35,8 +37,9 @@ type sqsListen struct {
 	exitedMu sync.Mutex
 	done     chan bool
 
-	broadcastCh sync.Map
-	pendings    map[string]int
+	broadcastCh   sync.Map
+	pendings      map[string]int
+	maxGoroutines *dynsemaphore.DynSemaphore // Max of goroutines wating to send the message
 }
 
 func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
@@ -83,6 +86,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	p.pendings = make(map[string]int)
 
 	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
+	p.maxGoroutines = dynsemaphore.New(runtime.NumCPU() * 10) // What's the right limit?
 
 	go p.listen()
 
@@ -163,23 +167,21 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		m.B = []byte(s)
 	}
 
-	wg := sync.WaitGroup{}
 	p.broadcastCh.Range(func(k, v interface{}) bool {
 		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
 			return true
 		}
 		atLeastOneValid = true
+		p.addPending(m)
 		// Send the message in parallel to avoid blocking all messages
 		// due to a long standing reactor that has its chan full
-		wg.Add(1)
+		p.maxGoroutines.Access() // Check the limit of goroutines
 		go func(m *Msg) {
 			k.(*reactor.Reactor).Ch <- m
-			wg.Done()
+			p.maxGoroutines.Release()
 		}(m)
-		p.addPending(m)
 		return true
 	})
-	wg.Wait()
 
 	// We delete this message if is invalid for all the reactors
 	if !atLeastOneValid {
