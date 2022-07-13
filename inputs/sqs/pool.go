@@ -39,6 +39,7 @@ type sqsListen struct {
 
 	broadcastCh   sync.Map
 	pendings      map[string]int
+	messError     map[string]bool
 	maxGoroutines *dynsemaphore.DynSemaphore // Max of goroutines wating to send the message
 }
 
@@ -84,6 +85,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	}
 	p.broadcastCh.Store(r, true)
 	p.pendings = make(map[string]int)
+	p.messError = make(map[string]bool)
 
 	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
 	p.maxGoroutines = dynsemaphore.New(runtime.NumCPU() * 10) // What's the right limit?
@@ -178,6 +180,11 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		// due to a long standing reactor that has its chan full
 		p.maxGoroutines.Access() // Check the limit of goroutines
 		go func(m *Msg) {
+			defer func() {
+				if r := recover(); r != nil {
+					return // Ignore "closed channel" error when the program finishes
+				}
+			}()
 			k.(*reactor.Reactor).Ch <- m
 			p.maxGoroutines.Release()
 		}(m)
@@ -187,7 +194,7 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 	// We delete this message if is invalid for all the reactors
 	if !atLeastOneValid {
 		log.Printf("Invalid message from %s, deleted: %s", p.URL, *msg.Body)
-		p.Delete(m)
+		p.delete(m)
 	}
 
 }
@@ -213,7 +220,7 @@ func (p *sqsListen) Exit() error {
 	return nil
 }
 
-func (p *sqsListen) Delete(v lib.Msg) (err error) {
+func (p *sqsListen) delete(v lib.Msg) (err error) {
 	msg, ok := v.(*Msg)
 	if !ok {
 		log.Printf("ERROR SQS Delete: invalid message %+v", v)
@@ -250,23 +257,34 @@ func (p *sqsListen) addPending(m lib.Msg) {
 }
 
 // Done removes the message from the pending queue.
-func (p *sqsListen) Done(m lib.Msg) {
-	p.Lock()
-	defer p.Unlock()
+func (p *sqsListen) Done(m lib.Msg, statusOk bool) {
 	msg, ok := m.(*Msg)
 	if !ok {
 		return
 	}
 	id := *msg.M.ReceiptHandle
 
+	p.Lock()
+	defer p.Unlock()
+
+	// If it's not in pending, ignore it
 	v, ok := p.pendings[id]
 	if !ok {
 		return
 	}
-	if v <= 1 {
-		delete(p.pendings, id)
-		return
-	}
 	v -= 1
 	p.pendings[id] = v
+	if !statusOk {
+		p.messError[id] = true
+	}
+
+	// Check if it's the last
+	if v <= 0 {
+		delete(p.pendings, id)
+		_, hadError := p.messError[id]
+		if !hadError {
+			// Delete the message if there's no more pending reactors
+			go p.delete(m) // Execute delete message outside the Lock
+		}
+	}
 }

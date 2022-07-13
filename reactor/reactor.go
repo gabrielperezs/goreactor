@@ -174,8 +174,6 @@ func (r *Reactor) deadline() {
 }
 
 func (r *Reactor) run(msg lib.Msg) {
-	defer r.I.Done(msg) // To remove this message from the pending message queue
-
 	r.deadline()
 
 	cc := r.cc
@@ -191,20 +189,7 @@ func (r *Reactor) run(msg lib.Msg) {
 	}
 
 	err = r.O.Run(rl, msg)
-	defer rl.Done(err)
-
-	if err == nil {
-		if err := r.I.Delete(msg); err != nil {
-			log.Printf("INTERNAL ERROR: %s", err)
-		}
-		return
-	}
-
-	if err == ErrInvalidMsgForPlugin {
-		return
-	}
-
-	if err := r.I.Put(msg); err != nil {
-		log.Printf("INTERNAL ERROR: %s", err)
-	}
+	ok := err == nil || err == ErrInvalidMsgForPlugin
+	r.I.Done(msg, ok) // To remove this message from the pending message queue
+	rl.Done(err)
 }
