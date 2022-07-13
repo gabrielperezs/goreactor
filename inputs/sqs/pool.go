@@ -111,6 +111,7 @@ func (p *sqsListen) listen() {
 				time.Sleep(time.Second)
 				tries++
 				if tries > 120 { // Wait no more than 120 seconds, the usual max
+					log.Printf("WARNING, timeout waiting for %d pending messages", len(p.pendings))
 					break
 				}
 			}
