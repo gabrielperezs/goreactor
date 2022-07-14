@@ -54,8 +54,8 @@ func NewReactor(icfg interface{}) *Reactor {
 
 	// There are several listeners for concurrency,
 	// better not to buffer too much to avoid to many message in travel.
-	// Leave 1 for better use of CPU but can be zero
-	r.Ch = make(chan lib.Msg, 1)
+	// Buffer reasonable values are 0 or 1
+	r.Ch = make(chan lib.Msg)
 
 	log.Printf("Reactor %d concurrent %d, delay %s", r.id, r.Concurrent, r.Delay)
 

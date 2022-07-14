@@ -37,10 +37,10 @@ type sqsListen struct {
 	exitedMu sync.Mutex
 	done     chan bool
 
-	broadcastCh   sync.Map
-	pendings      map[string]int
-	messError     map[string]bool
-	maxGoroutines *dynsemaphore.DynSemaphore // Max of goroutines wating to send the message
+	broadcastCh       sync.Map
+	pendings          map[string]int
+	messError         map[string]bool
+	maxQueuedMessages *dynsemaphore.DynSemaphore // Max of goroutines wating to send the message
 }
 
 func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
@@ -83,12 +83,13 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	if err != nil {
 		return nil, err
 	}
-	p.broadcastCh.Store(r, true)
+	p.broadcastCh.Store(r, r.Concurrent)
 	p.pendings = make(map[string]int)
 	p.messError = make(map[string]bool)
 
 	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
-	p.maxGoroutines = dynsemaphore.New(runtime.NumCPU() * 10) // What's the right limit?
+	p.maxQueuedMessages = dynsemaphore.New(0)
+	p.updateConcurrency()
 
 	go p.listen()
 
@@ -96,7 +97,23 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 }
 
 func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
-	p.broadcastCh.Store(r, true)
+	p.broadcastCh.Store(r, r.Concurrent)
+	p.updateConcurrency()
+}
+
+func (p *sqsListen) updateConcurrency() {
+	total := 0
+	p.broadcastCh.Range(func(k, v interface{}) bool {
+		total += v.(int)
+		return true
+	})
+	maxPendings := total
+	if maxPendings < runtime.NumCPU() {
+		maxPendings = runtime.NumCPU()
+	}
+	maxPendings = maxPendings * 2 // Its means x*nreactors max pending messages via goroutines, What's the right number?
+	log.Printf("SQS: total concurrency: %d, max pending in-flight messages: %d", total, maxPendings)
+	p.maxQueuedMessages.SetConcurrency(total)
 }
 
 func (p *sqsListen) listen() {
@@ -178,7 +195,7 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		p.addPending(m)
 		// Send the message in parallel to avoid blocking all messages
 		// due to a long standing reactor that has its chan full
-		p.maxGoroutines.Access() // Check the limit of goroutines
+		p.maxQueuedMessages.Access() // Check the limit of goroutines
 		go func(m *Msg) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -186,7 +203,7 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 				}
 			}()
 			k.(*reactor.Reactor).Ch <- m
-			p.maxGoroutines.Release()
+			p.maxQueuedMessages.Release()
 		}(m)
 		return true
 	})
