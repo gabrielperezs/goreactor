@@ -66,11 +66,6 @@ func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*SQSPlugin, error) 
 	return p, nil
 }
 
-// Delete message from the SQS
-func (p *SQSPlugin) Delete(v lib.Msg) error {
-	return p.l.Delete(v)
-}
-
 // Put is not needed in SQS
 func (p *SQSPlugin) Put(v lib.Msg) error {
 	return nil
@@ -87,6 +82,6 @@ func (p *SQSPlugin) Stop() {
 	p.l.Stop()
 }
 
-func (p *SQSPlugin) Done(v lib.Msg) {
-	p.l.Done(v)
+func (p *SQSPlugin) Done(v lib.Msg, status bool) {
+	p.l.Done(v, status)
 }
