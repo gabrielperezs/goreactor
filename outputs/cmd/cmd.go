@@ -166,8 +166,7 @@ func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 // the command.
 func (o *Cmd) Run(rl reactorlog.ReactorLog, msg lib.Msg) error {
 
-	var args []string
-	args = o.getReplacedArguments(msg)
+	args := o.getReplacedArguments(msg)
 
 	logLabel := o.findReplace(msg, o.r.Label)
 	rl.SetLabel(logLabel)
