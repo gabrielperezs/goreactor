@@ -44,7 +44,7 @@ Substitutions in args entry in the config file
     
     If the message has a field `"Message"`, the content of the original message will be replaced with the content of the field `$.Message`.
     
-- Formated json
+- Indented json
 
     [The library used to parse jq like expressions](https://github.com/savaki/jq) sometimes has problems with new lines. It is better to use json messages without new lines or other indentations.
 
