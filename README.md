@@ -36,6 +36,18 @@ Substitutions in args entry in the config file
     - `CreationTimestampMilliseconds` is the message creation time with in milliseconds
     - `CreationTimestampSeconds` is the message creation time in seconds _See [examples/ARRAY.md](examples/ARRAY.md) for an example_
 
+- `$..`
+  
+    If you want to select the full message you should use `$..` instead of `$.`.
+
+- `$.Message`
+    
+    If the message has a field `"Message"`, the content of the original message will be replaced with the content of the field `$.Message`.
+    
+- Formated json
+
+    [The library used to parse jq like expressions](https://github.com/savaki/jq) sometimes has problems with new lines. It is better to use json messages without new lines or other indentations.
+
 Log outputs to stdout or firehose
 ----------------------------------
 
@@ -148,7 +160,8 @@ Please __put attention__ in the "cond" parameter (is a condition, like an "if").
 
 
 ```toml
-logfile = "/var/log/goreactor.log"
+[logstream]
+logstream = "stdout"
 
 [[reactor]]
 concurrent = 10
@@ -164,7 +177,6 @@ cond = [
 ]
 cmd = "/usr/local/bin/do-something-with-the-instance"
 args = ["asg=$.AutoScalingGroupName", "instance_id=$.EC2InstanceId"]
-argsjson = true
 workingDirectory = "/path/to/process/wd/"
 ```
 
