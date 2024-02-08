@@ -127,7 +127,7 @@ func (rl *JSONReactorLog) Done(err error) {
 		rl.Error = err.Error()
 	}
 	// https://github.com/golang/go/issues/5491#issuecomment-66079585
-	rl.Elapse = time.Now().Sub(rl.st).Seconds()
+	rl.Elapse = time.Since(rl.st).Seconds()
 	rl.printJSON()
 	rl.reset()
 }
