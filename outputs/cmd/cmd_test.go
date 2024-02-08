@@ -9,8 +9,9 @@ import (
 )
 
 type Msg struct {
-	B  []byte
-	ts int64
+	B    []byte
+	ts   int64
+	hash string
 }
 
 func (m *Msg) Body() []byte {
@@ -19,6 +20,10 @@ func (m *Msg) Body() []byte {
 
 func (m *Msg) CreationTimestampMilliseconds() int64 {
 	return m.ts
+}
+
+func (m *Msg) GetHash() string {
+	return m.hash
 }
 
 func TestJqReplaceActuallyReplacing(t *testing.T) {

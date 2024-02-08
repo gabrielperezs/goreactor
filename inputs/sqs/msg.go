@@ -11,6 +11,7 @@ type Msg struct {
 	M             *sqs.DeleteMessageBatchRequestEntry
 	B             []byte
 	SentTimestamp int64
+	Hash          string
 }
 
 // Body will return the bytes of the SQS message
@@ -21,4 +22,8 @@ func (m *Msg) Body() []byte {
 // CreationTimestampMilliseconds will return the creation timestamp for the message
 func (m *Msg) CreationTimestampMilliseconds() int64 {
 	return m.SentTimestamp
+}
+
+func (m *Msg) GetHash() string {
+	return m.Hash
 }

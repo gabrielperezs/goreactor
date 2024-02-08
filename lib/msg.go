@@ -4,4 +4,5 @@ package lib
 type Msg interface {
 	Body() []byte
 	CreationTimestampMilliseconds() int64
+	GetHash() string
 }

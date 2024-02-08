@@ -170,6 +170,7 @@ func (o *Cmd) Run(rl reactorlog.ReactorLog, msg lib.Msg) error {
 
 	logLabel := o.findReplace(msg, o.r.Label)
 	rl.SetLabel(logLabel)
+	rl.SetHash(msg.GetHash())
 
 	ctx, cancel := context.WithTimeout(context.Background(), o.maximumCmdTimeLive)
 	defer cancel()

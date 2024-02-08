@@ -177,6 +177,7 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		},
 		URL:           aws.String(p.URL),
 		SentTimestamp: sentTimestamp,
+		Hash:          *msg.MessageId,
 	}
 
 	jsonParsed, err := gabs.ParseJSON(m.B)
