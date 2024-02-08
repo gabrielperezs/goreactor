@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -160,10 +159,10 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 	}
 
 	if !fileInfo.IsDir() {
-		return c, fmt.Errorf("Configuration directory is not a directory: %s", configDir)
+		return c, fmt.Errorf("configuration directory is not a directory: %s", configDir)
 	}
 
-	files, err := ioutil.ReadDir(configDir)
+	files, err := os.ReadDir(configDir)
 	if err != nil {
 		return nil, err
 	}
@@ -185,9 +184,7 @@ func readConfig(configFile, configDir string) (c *Config, err error) {
 			continue
 		}
 
-		for _, reactor := range configTemp.Reactor {
-			c.Reactor = append(c.Reactor, reactor)
-		}
+		c.Reactor = append(c.Reactor, configTemp.Reactor...)
 
 		// Read first LogStream only
 		if c.LogStream == nil && configTemp.LogStream != nil {
