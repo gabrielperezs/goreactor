@@ -18,7 +18,8 @@ Configuration in go reactor
 In the goreactor, we are ready to listen to messages and execute the command.
 
 ```toml
-logfile = "/var/log/goreactor.log"
+[logstream]
+logstream = "stdout"
 
 [[reactor]]
 concurrent = 10
@@ -30,7 +31,6 @@ region = "eu-west-1"
 output = "cmd"
 cmd = "/usr/local/bin/do-something-for-that-time"
 args = ["--example-argument-before", "$.args...", "--example-argument-after", "--other-timestamp=${CreationTimestampSeconds}"]
-argsjson = true
 ```
 
 
