@@ -39,12 +39,14 @@ type ReactorLog interface {
 	Write(b []byte) (int, error)
 	Start(pid int, s string)
 	SetLabel(string)
+	SetHash(string)
 }
 
 // JSONReactorLog lets you log as json lines.
 type JSONReactorLog struct {
 	Host      string  `json:",omitempty"`
 	Label     string  `json:",omitempty"`
+	Hash      string  `json:",omitempty"`
 	Pid       int     `json:",omitempty"`
 	RID       uint64  `json:",omitempty"`
 	TID       uint64  `json:",omitempty"`
@@ -67,6 +69,10 @@ type JSONReactorLog struct {
 
 func (rl *JSONReactorLog) SetLabel(value string) {
 	rl.Label = value
+}
+
+func (rl *JSONReactorLog) SetHash(value string) {
+	rl.Hash = value
 }
 
 // Write will be called by the reactor and this bytes will be sent to the general log channel
@@ -146,6 +152,7 @@ func (rl *JSONReactorLog) printJSON() {
 func (rl *JSONReactorLog) reset() {
 	rl.Host = ""
 	rl.Label = ""
+	rl.Hash = ""
 	rl.Pid = 0
 	rl.RID = 0
 	rl.TID = 0
