@@ -1,8 +1,10 @@
 package sqs
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
@@ -251,6 +253,31 @@ func (p *sqsListen) delete(v lib.Msg) (err error) {
 	if _, err = msg.SQS.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      msg.URL,
 		ReceiptHandle: msg.M.ReceiptHandle,
+	}); err != nil {
+		log.Printf("ERROR: %s - %s", *msg.URL, err)
+	}
+	return
+}
+
+func (p *sqsListen) KeepAlive(ctx context.Context, t time.Duration, v lib.Msg) (err error) {
+	msg, ok := v.(*Msg)
+	if !ok {
+		log.Printf("ERROR SQS KeepAlive: invalid message %+v", v)
+		return
+	}
+
+	if msg.SQS == nil || msg == nil {
+		return
+	}
+
+	// increase the visibility timeout by 10% of the original time
+	t = t + time.Duration(float64(t)*0.1)
+	sec := int64(math.Ceil(t.Seconds()))
+
+	if _, err = msg.SQS.ChangeMessageVisibilityWithContext(ctx, &sqs.ChangeMessageVisibilityInput{
+		QueueUrl:          msg.URL,
+		ReceiptHandle:     msg.M.ReceiptHandle,
+		VisibilityTimeout: aws.Int64(sec),
 	}); err != nil {
 		log.Printf("ERROR: %s - %s", *msg.URL, err)
 	}

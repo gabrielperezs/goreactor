@@ -1,8 +1,10 @@
 package sqs
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gabrielperezs/goreactor/lib"
 	"github.com/gabrielperezs/goreactor/reactor"
@@ -84,4 +86,8 @@ func (p *SQSPlugin) Stop() {
 
 func (p *SQSPlugin) Done(v lib.Msg, status bool) {
 	p.l.Done(v, status)
+}
+
+func (p *SQSPlugin) KeepAlive(ctx context.Context, t time.Duration, v lib.Msg) (err error) {
+	return p.l.KeepAlive(ctx, t, v)
 }

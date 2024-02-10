@@ -1,6 +1,7 @@
 package reactor
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -19,26 +20,33 @@ var (
 	counters uint64
 
 	// ErrInvalidMsgForPlugin error
-	ErrInvalidMsgForPlugin = fmt.Errorf("This message is not valid for this output")
+	ErrInvalidMsgForPlugin = fmt.Errorf("this message is not valid for this output")
+
+	keepAliveLogMessage = []byte("keepalive")
+)
+
+const (
+	defaultKeepAliveInterval = 5 * time.Minute
 )
 
 // Reactor is the struct where we keep the relation betwean Input plugins
 // and the Output plugins. Also contains the configuration for concurrency...
 type Reactor struct {
-	mu           sync.Mutex
-	I            lib.Input
-	O            lib.Output
-	Ch           chan lib.Msg
-	id           uint64
-	tid          uint64
-	Concurrent   int
-	Delay        time.Duration
-	Label        string
-	Hostname     string
-	nextDeadline time.Time
-	done         chan bool
-	logStream    lib.LogStream
-	cc           *dynsemaphore.DynSemaphore
+	mu                sync.Mutex
+	I                 lib.Input
+	O                 lib.Output
+	Ch                chan lib.Msg
+	id                uint64
+	tid               uint64
+	Concurrent        int
+	Delay             time.Duration
+	KeepAliveInterval time.Duration
+	Label             string
+	Hostname          string
+	nextDeadline      time.Time
+	done              chan bool
+	logStream         lib.LogStream
+	cc                *dynsemaphore.DynSemaphore
 }
 
 // NewReactor will create a reactor with the configuration
@@ -84,6 +92,12 @@ func (r *Reactor) Reload(icfg interface{}) {
 			r.Delay, err = time.ParseDuration(v.(string))
 			if err != nil {
 				r.Delay = 0
+			}
+		case "keepaliveinterval":
+			var err error
+			r.KeepAliveInterval, err = time.ParseDuration(v.(string))
+			if err != nil {
+				r.KeepAliveInterval = 0
 			}
 		}
 	}
@@ -188,8 +202,38 @@ func (r *Reactor) run(msg lib.Msg) {
 		rl = jsonreactorlog.NewJSONReactorLog(r.logStream, r.Hostname, r.id, atomic.AddUint64(&r.tid, 1))
 	}
 
-	err = r.O.Run(rl, msg)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// run keep alive go routine if needed
+	if r.KeepAliveInterval > 0 {
+		go r.KeepAlive(ctx, rl, msg)
+	}
+
+	err = r.O.Run(ctx, rl, msg)
 	ok := err == nil || err == ErrInvalidMsgForPlugin
 	r.I.Done(msg, ok) // To remove this message from the pending message queue
 	rl.Done(err)
+}
+
+func (r *Reactor) KeepAlive(ctx context.Context, rl reactorlog.ReactorLog, msg lib.Msg) {
+	t := time.NewTicker(r.KeepAliveInterval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			keepAliveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := r.I.KeepAlive(keepAliveCtx, r.KeepAliveInterval, msg)
+			cancel()
+
+			if err != nil {
+				rl.Write([]byte(fmt.Sprintf("keepalive error: %s", err)))
+			} else {
+				rl.Write(keepAliveLogMessage)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
