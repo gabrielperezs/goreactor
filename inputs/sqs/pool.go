@@ -194,9 +194,9 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 	}
 
 	if p.noBlocking {
-		p.deliverNoBlocking(m)
+		atLeastOneValid = p.deliverNoBlocking(m)
 	} else {
-		p.deliverBlocking(m)
+		atLeastOneValid = p.deliverBlocking(m)
 	}
 
 	// We delete this message if is invalid for all the reactors
