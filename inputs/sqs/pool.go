@@ -164,9 +164,6 @@ func (p *sqsListen) listen() {
 }
 
 func (p *sqsListen) deliver(msg *sqs.Message) {
-	// Flag to delete the message if don't match with at least one reactor condition
-	atLeastOneValid := false
-
 	timestamp, ok := msg.Attributes[sqs.MessageSystemAttributeNameSentTimestamp]
 	var sentTimestamp int64
 	if ok && timestamp != nil {
@@ -193,6 +190,8 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		m.B = []byte(s)
 	}
 
+	// Flag to delete the message if don't match with at least one reactor condition
+	atLeastOneValid := false
 	if p.noBlocking {
 		atLeastOneValid = p.deliverNoBlocking(m)
 	} else {
@@ -204,7 +203,6 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		log.Printf("Invalid message from %s, deleted: %s", p.url, *msg.Body)
 		p.delete(m)
 	}
-
 }
 
 // deliverBlocking send the message to the reactors in sequence
