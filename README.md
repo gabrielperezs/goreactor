@@ -84,6 +84,18 @@ Arguments of a reactor
 - **delay** - Period of time that a new command runs without concurrency, after that period the next message will start. Format https://pkg.go.dev/time#ParseDuration
 - **keepAliveInterval** - A signal will be sent to the underline input source to inform that the process is still running. Format https://pkg.go.dev/time#ParseDuration. In SQS input will trigger a request ChangeMessageVisibility (https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ChangeMessageVisibility.html)
 
+Arguments of a reactor SQS
+--------------------------
+
+- **url** - AWS SQS URL
+- **region** - AWS Region
+- **profile** - AWS Profile
+- **maxnumberofmessages** - AWS SQS setting: The maximum number of messages to return. Amazon SQS never returns more messages than this value (however, fewer messages might be returned). Valid values: 1 to 10. Default: 1.
+- **noblocking** is a boolean value that defines the parallelims of the reactors
+    - _false_ (default): send the message to the reactors in sequence
+    - _true_: send the message in parallel to avoid blocking
+
+
 Set working directory
 ---------------------
 
