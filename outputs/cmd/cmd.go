@@ -164,7 +164,7 @@ func (o *Cmd) getReplacedArguments(msg lib.Msg) []string {
 // Run will execute the binary command that was defined in the config.
 // In this function we also define the OUT and ERR data destination of
 // the command.
-func (o *Cmd) Run(rl reactorlog.ReactorLog, msg lib.Msg) error {
+func (o *Cmd) Run(parentCtx context.Context, rl reactorlog.ReactorLog, msg lib.Msg) error {
 
 	args := o.getReplacedArguments(msg)
 
@@ -172,7 +172,7 @@ func (o *Cmd) Run(rl reactorlog.ReactorLog, msg lib.Msg) error {
 	rl.SetLabel(logLabel)
 	rl.SetHash(msg.GetHash())
 
-	ctx, cancel := context.WithTimeout(context.Background(), o.maximumCmdTimeLive)
+	ctx, cancel := context.WithTimeout(parentCtx, o.maximumCmdTimeLive)
 	defer cancel()
 
 	var c *exec.Cmd

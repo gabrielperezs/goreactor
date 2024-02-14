@@ -1,8 +1,10 @@
 package sqs
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
@@ -25,10 +27,11 @@ var connPool sync.Map
 
 type sqsListen struct {
 	sync.Mutex
-	URL                 string
-	Region              string
-	Profile             string
-	MaxNumberOfMessages int64
+	url                 string
+	region              string
+	profile             string
+	maxNumberOfMessages int64
+	noBlocking          bool // If true, the input will not block waiting for a reactor to finish
 
 	svc *sqs.SQS
 
@@ -52,32 +55,34 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	for k, v := range c {
 		switch strings.ToLower(k) {
 		case "url":
-			p.URL = v.(string)
+			p.url = v.(string)
 		case "region":
-			p.Region = v.(string)
+			p.region = v.(string)
 		case "profile":
-			p.Profile = v.(string)
+			p.profile = v.(string)
 		case "maxnumberofmessages":
-			p.MaxNumberOfMessages, _ = v.(int64)
+			p.maxNumberOfMessages, _ = v.(int64)
+		case "noblocking":
+			p.noBlocking, _ = v.(bool)
 		}
 	}
 
-	if p.MaxNumberOfMessages == 0 {
-		p.MaxNumberOfMessages = defaultMaxNumberOfMessages
+	if p.maxNumberOfMessages == 0 {
+		p.maxNumberOfMessages = defaultMaxNumberOfMessages
 	}
 
-	if p.URL == "" {
+	if p.url == "" {
 		return nil, fmt.Errorf("SQS ERROR: URL not found or invalid")
 	}
 
-	if p.Region == "" {
+	if p.region == "" {
 		return nil, fmt.Errorf("SQS ERROR: Region not found or invalid")
 	}
 
-	log.Printf("SQS NEW %s", p.URL)
+	log.Printf("SQS NEW %s", p.url)
 
 	sess, err := session.NewSessionWithOptions(session.Options{
-		Profile:           p.Profile,
+		Profile:           p.profile,
 		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
@@ -87,7 +92,7 @@ func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, err
 	p.pendings = make(map[string]int)
 	p.messError = make(map[string]bool)
 
-	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.Region)})
+	p.svc = sqs.New(sess, &aws.Config{Region: aws.String(p.region)})
 	p.maxQueuedMessages = dynsemaphore.New(0)
 	p.updateConcurrency()
 
@@ -119,12 +124,12 @@ func (p *sqsListen) updateConcurrency() {
 func (p *sqsListen) listen() {
 	defer func() {
 		p.done <- true
-		log.Printf("SQS EXIT %s", p.URL)
+		log.Printf("SQS EXIT %s", p.url)
 	}()
 
 	for {
 		if atomic.LoadUint32(&p.exiting) > 0 {
-			log.Printf("SQS Listener Stopped %s", p.URL)
+			log.Printf("SQS Listener Stopped %s", p.url)
 			tries := 0
 			for len(p.pendings) > 0 {
 				time.Sleep(time.Second)
@@ -138,8 +143,8 @@ func (p *sqsListen) listen() {
 		}
 
 		params := &sqs.ReceiveMessageInput{
-			QueueUrl:            aws.String(p.URL),
-			MaxNumberOfMessages: aws.Int64(p.MaxNumberOfMessages),
+			QueueUrl:            aws.String(p.url),
+			MaxNumberOfMessages: aws.Int64(p.maxNumberOfMessages),
 			WaitTimeSeconds:     aws.Int64(waitTimeSeconds),
 			AttributeNames:      []*string{&MessageSystemAttributeNameSentTimestamp},
 		}
@@ -147,7 +152,7 @@ func (p *sqsListen) listen() {
 		resp, err := p.svc.ReceiveMessage(params)
 
 		if err != nil {
-			log.Printf("ERROR: AWS session on %s - %s", p.URL, err)
+			log.Printf("ERROR: AWS session on %s - %s", p.url, err)
 			time.Sleep(15 * time.Second)
 			continue
 		}
@@ -159,9 +164,6 @@ func (p *sqsListen) listen() {
 }
 
 func (p *sqsListen) deliver(msg *sqs.Message) {
-	// Flag to delete the message if don't match with at least one reactor condition
-	atLeastOneValid := false
-
 	timestamp, ok := msg.Attributes[sqs.MessageSystemAttributeNameSentTimestamp]
 	var sentTimestamp int64
 	if ok && timestamp != nil {
@@ -175,7 +177,7 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 			Id:            msg.MessageId,
 			ReceiptHandle: msg.ReceiptHandle,
 		},
-		URL:           aws.String(p.URL),
+		URL:           aws.String(p.url),
 		SentTimestamp: sentTimestamp,
 		Hash:          *msg.MessageId,
 	}
@@ -188,33 +190,57 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		m.B = []byte(s)
 	}
 
+	// Flag to delete the message if don't match with at least one reactor condition
+	atLeastOneValid := false
+	if p.noBlocking {
+		atLeastOneValid = p.deliverNoBlocking(m)
+	} else {
+		atLeastOneValid = p.deliverBlocking(m)
+	}
+
+	// We delete this message if is invalid for all the reactors
+	if !atLeastOneValid {
+		log.Printf("Invalid message from %s, deleted: %s", p.url, *msg.Body)
+		p.delete(m)
+	}
+}
+
+// deliverBlocking send the message to the reactors in sequence
+func (p *sqsListen) deliverBlocking(m *Msg) (atLeastOneValid bool) {
 	p.broadcastCh.Range(func(k, v interface{}) bool {
 		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
 			return true
 		}
 		atLeastOneValid = true
 		p.addPending(m)
-		// Send the message in parallel to avoid blocking all messages
-		// due to a long standing reactor that has its chan full
+		k.(*reactor.Reactor).Ch <- m
+		return true
+	})
+	return
+}
+
+// deliverNoBlocking send the message in parallel to avoid blocking
+// all messages due to a long standing reactor that has its chan full
+func (p *sqsListen) deliverNoBlocking(m *Msg) (atLeastOneValid bool) {
+	p.broadcastCh.Range(func(k, v interface{}) bool {
+		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
+			return true
+		}
+		atLeastOneValid = true
+		p.addPending(m)
 		p.maxQueuedMessages.Access() // Check the limit of goroutines
 		go func(m *Msg) {
 			defer func() {
+				p.maxQueuedMessages.Release()
 				if r := recover(); r != nil {
 					return // Ignore "closed channel" error when the program finishes
 				}
 			}()
 			k.(*reactor.Reactor).Ch <- m
-			p.maxQueuedMessages.Release()
 		}(m)
 		return true
 	})
-
-	// We delete this message if is invalid for all the reactors
-	if !atLeastOneValid {
-		log.Printf("Invalid message from %s, deleted: %s", p.URL, *msg.Body)
-		p.delete(m)
-	}
-
+	return
 }
 
 func (p *sqsListen) Stop() {
@@ -222,7 +248,7 @@ func (p *sqsListen) Stop() {
 		return
 	}
 	atomic.AddUint32(&p.exiting, 1)
-	log.Printf("SQS Input Stopping %s", p.URL)
+	log.Printf("SQS Input Stopping %s", p.url)
 }
 
 func (p *sqsListen) Exit() error {
@@ -251,6 +277,31 @@ func (p *sqsListen) delete(v lib.Msg) (err error) {
 	if _, err = msg.SQS.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      msg.URL,
 		ReceiptHandle: msg.M.ReceiptHandle,
+	}); err != nil {
+		log.Printf("ERROR: %s - %s", *msg.URL, err)
+	}
+	return
+}
+
+func (p *sqsListen) KeepAlive(ctx context.Context, t time.Duration, v lib.Msg) (err error) {
+	msg, ok := v.(*Msg)
+	if !ok {
+		log.Printf("ERROR SQS KeepAlive: invalid message %+v", v)
+		return
+	}
+
+	if msg.SQS == nil || msg == nil {
+		return
+	}
+
+	// increase the visibility timeout by 10% of the original time
+	t = t + time.Duration(float64(t)*0.1)
+	sec := int64(math.Ceil(t.Seconds()))
+
+	if _, err = msg.SQS.ChangeMessageVisibilityWithContext(ctx, &sqs.ChangeMessageVisibilityInput{
+		QueueUrl:          msg.URL,
+		ReceiptHandle:     msg.M.ReceiptHandle,
+		VisibilityTimeout: aws.Int64(sec),
 	}); err != nil {
 		log.Printf("ERROR: %s - %s", *msg.URL, err)
 	}
