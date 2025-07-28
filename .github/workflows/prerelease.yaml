@@ -1,13 +1,13 @@
-name: Upload Release Asset
+name: Upload Prerelease Asset
 
 on:
   push:
     tags:
-      - "v*"
+      - "p*"
 
 jobs:
   build:
     uses: ./.github/workflows/build-asset-reusable.yaml
     secrets: inherit
     with:
-      prerelease: false
+      prerelease: true
