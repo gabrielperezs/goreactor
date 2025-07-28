@@ -12,6 +12,7 @@ type Msg struct {
 	B             []byte
 	SentTimestamp int64
 	Hash          string
+	doneCh        chan struct{}
 }
 
 // Body will return the bytes of the SQS message
@@ -26,4 +27,12 @@ func (m *Msg) CreationTimestampMilliseconds() int64 {
 
 func (m *Msg) GetHash() string {
 	return m.Hash
+}
+
+func (m *Msg) Done() {
+	close(m.doneCh)
+}
+
+func (m *Msg) Wait() {
+	<-m.doneCh
 }

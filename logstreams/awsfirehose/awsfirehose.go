@@ -11,14 +11,14 @@ type AWSFirehose struct {
 	s *firehosePool.Server
 }
 
-func NewOrGet(cfg map[string]interface{}) (*AWSFirehose, error) {
+func NewOrGet(cfg map[string]any) (*AWSFirehose, error) {
 	c := firehosePool.Config{}
 
 	v := reflect.ValueOf(&c)
 	ps := v.Elem()
 	typeOfS := ps.Type()
 
-	cpCfg := make(map[string]interface{})
+	cpCfg := make(map[string]any)
 	for k, v := range cfg {
 		cpCfg[strings.ToLower(k)] = v
 	}

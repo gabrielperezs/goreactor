@@ -50,7 +50,7 @@ type Reactor struct {
 }
 
 // NewReactor will create a reactor with the configuration
-func NewReactor(icfg interface{}) *Reactor {
+func NewReactor(icfg any) *Reactor {
 	r := &Reactor{
 		id:         atomic.AddUint64(&counters, 1),
 		Concurrent: 0,
@@ -71,11 +71,11 @@ func NewReactor(icfg interface{}) *Reactor {
 }
 
 // Reload will replace the old configuration with new parameters
-func (r *Reactor) Reload(icfg interface{}) {
+func (r *Reactor) Reload(icfg any) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	cfg, ok := icfg.(map[string]interface{})
+	cfg, ok := icfg.(map[string]any)
 	if !ok {
 		log.Printf("ERROR Reactor config")
 		return
@@ -165,6 +165,7 @@ func (r *Reactor) listener() {
 	for msg := range r.Ch {
 		if r.O != nil {
 			r.run(msg)
+			msg.Done() // Signal that the message is done processing
 		}
 	}
 }

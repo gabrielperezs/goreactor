@@ -5,4 +5,6 @@ type Msg interface {
 	Body() []byte
 	CreationTimestampMilliseconds() int64
 	GetHash() string
+	Done()
+	Wait()
 }

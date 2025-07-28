@@ -46,7 +46,7 @@ type sqsListen struct {
 	maxQueuedMessages *dynsemaphore.DynSemaphore // Max of goroutines wating to send the message
 }
 
-func newSQSListen(r *reactor.Reactor, c map[string]interface{}) (*sqsListen, error) {
+func newSQSListen(r *reactor.Reactor, c map[string]any) (*sqsListen, error) {
 
 	p := &sqsListen{
 		done: make(chan bool),
@@ -108,7 +108,7 @@ func (p *sqsListen) AddOrUpdate(r *reactor.Reactor) {
 
 func (p *sqsListen) updateConcurrency() {
 	total := 0
-	p.broadcastCh.Range(func(k, v interface{}) bool {
+	p.broadcastCh.Range(func(k, v any) bool {
 		total += v.(int)
 		return true
 	})
@@ -180,11 +180,12 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 		URL:           aws.String(p.url),
 		SentTimestamp: sentTimestamp,
 		Hash:          *msg.MessageId,
+		doneCh:        make(chan struct{}),
 	}
 
 	jsonParsed, err := gabs.ParseJSON(m.B)
 	if err == nil && jsonParsed.Exists("Message") {
-		s := strings.Replace(jsonParsed.S("Message").String(), "\\\"", "\"", -1)
+		s := strings.ReplaceAll(jsonParsed.S("Message").String(), "\\\"", "\"")
 		s = strings.TrimPrefix(s, "\"")
 		s = strings.TrimSuffix(s, "\"")
 		m.B = []byte(s)
@@ -207,13 +208,14 @@ func (p *sqsListen) deliver(msg *sqs.Message) {
 
 // deliverBlocking send the message to the reactors in sequence
 func (p *sqsListen) deliverBlocking(m *Msg) (atLeastOneValid bool) {
-	p.broadcastCh.Range(func(k, v interface{}) bool {
+	p.broadcastCh.Range(func(k, v any) bool {
 		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
 			return true
 		}
 		atLeastOneValid = true
 		p.addPending(m)
 		k.(*reactor.Reactor).Ch <- m
+		m.Wait()
 		return true
 	})
 	return
@@ -222,7 +224,7 @@ func (p *sqsListen) deliverBlocking(m *Msg) (atLeastOneValid bool) {
 // deliverNoBlocking send the message in parallel to avoid blocking
 // all messages due to a long standing reactor that has its chan full
 func (p *sqsListen) deliverNoBlocking(m *Msg) (atLeastOneValid bool) {
-	p.broadcastCh.Range(func(k, v interface{}) bool {
+	p.broadcastCh.Range(func(k, v any) bool {
 		if err := k.(*reactor.Reactor).MatchConditions(m); err != nil {
 			return true
 		}
@@ -237,6 +239,7 @@ func (p *sqsListen) deliverNoBlocking(m *Msg) (atLeastOneValid bool) {
 				}
 			}()
 			k.(*reactor.Reactor).Ch <- m
+			m.Wait()
 		}(m)
 		return true
 	})

@@ -26,12 +26,18 @@ func (m *Msg) GetHash() string {
 	return m.hash
 }
 
+func (m *Msg) Done() {
+}
+
+func (m *Msg) Wait() {
+}
+
 func TestJqReplaceActuallyReplacing(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"$.lang", "$.script"}
+	c["args"] = []any{"$.lang", "$.script"}
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -59,9 +65,9 @@ func TestJqReplaceActuallyReplacing(t *testing.T) {
 func TestFindReplaceReturningSlice(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"$.lang", "$.script", "$.args..."}
+	c["args"] = []any{"$.lang", "$.script", "$.args..."}
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -92,9 +98,9 @@ func TestFindReplaceReturningSlice(t *testing.T) {
 func TestFindReplaceS3Example(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "/usr/local/bin/suppliers-metrics"
-	c["args"] = []interface{}{"-plugin=$.Records.[0].s3.bucket.name", "-file=$.Records.[0].s3.object.key", "-config=/usr/local/etc/suppliers-metrics.conf"}
+	c["args"] = []any{"-plugin=$.Records.[0].s3.bucket.name", "-file=$.Records.[0].s3.object.key", "-config=/usr/local/etc/suppliers-metrics.conf"}
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -160,9 +166,9 @@ func TestFindReplaceS3Example(t *testing.T) {
 func TestFindReplacePassJsonItself(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"$.."}
+	c["args"] = []any{"$.."}
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -183,9 +189,9 @@ func TestFindReplacePassJsonItself(t *testing.T) {
 func TestFindReplaceExpandArray(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"$...", "$...."} //Should test both just in case at some point it's used.
+	c["args"] = []any{"$...", "$...."} //Should test both just in case at some point it's used.
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -209,9 +215,9 @@ func TestFindReplaceExpandArray(t *testing.T) {
 func TestFindReplaceVariables(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"--timestamp", "${CreationTimestampMilliseconds}"} //Should test both just in case at some point it's used.
+	c["args"] = []any{"--timestamp", "${CreationTimestampMilliseconds}"} //Should test both just in case at some point it's used.
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {
@@ -233,9 +239,9 @@ func TestFindReplaceVariables(t *testing.T) {
 func TestFindReplaceWithArrayAndVariable(t *testing.T) {
 	var r *reactor.Reactor = nil
 
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["cmd"] = "cmd_name"
-	c["args"] = []interface{}{"$.lang", "$.script", "$.args..."}
+	c["args"] = []any{"$.lang", "$.script", "$.args..."}
 
 	cmd, err := NewOrGet(r, c)
 	if err != nil {

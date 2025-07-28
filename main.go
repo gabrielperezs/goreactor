@@ -22,8 +22,8 @@ import (
 // by all the plugins and filled with the TOML parser
 type Config struct {
 	MaxConcurrency int
-	LogStream      interface{}
-	Reactor        []interface{}
+	LogStream      any
+	Reactor        []any
 }
 
 var (
@@ -143,7 +143,7 @@ func sing() {
 
 func readConfig(configFile, configDir string) (c *Config, err error) {
 	c = &Config{
-		Reactor: make([]interface{}, 0),
+		Reactor: make([]any, 0),
 	}
 
 	if configDir == "" {

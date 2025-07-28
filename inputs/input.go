@@ -10,12 +10,12 @@ import (
 )
 
 // Get will start the input plugins
-func Get(r *reactor.Reactor, cfg interface{}) (lib.Input, error) {
+func Get(r *reactor.Reactor, cfg any) (lib.Input, error) {
 
-	var c map[string]interface{}
+	var c map[string]any
 	var ok bool
 
-	if c, ok = cfg.(map[string]interface{}); !ok {
+	if c, ok = cfg.(map[string]any); !ok {
 		return nil, fmt.Errorf("Can't read the configuration (hint: Input)")
 	}
 
