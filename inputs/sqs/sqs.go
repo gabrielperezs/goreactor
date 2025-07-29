@@ -26,7 +26,7 @@ type SQSPlugin struct {
 }
 
 // NewOrGet create a new SQS plugin and relate it with the Reactor
-func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*SQSPlugin, error) {
+func NewOrGet(r *reactor.Reactor, c map[string]any) (*SQSPlugin, error) {
 
 	p := &SQSPlugin{
 		r:    r,

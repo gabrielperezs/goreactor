@@ -36,7 +36,7 @@ type Cmd struct {
 
 // NewOrGet create the command struct and fill the parameters needed from the
 // config data.
-func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*Cmd, error) {
+func NewOrGet(r *reactor.Reactor, c map[string]any) (*Cmd, error) {
 
 	o := &Cmd{
 		r:    r,
@@ -48,7 +48,7 @@ func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*Cmd, error) {
 		case "cmd":
 			o.cmd = v.(string)
 		case "args":
-			for _, n := range v.([]interface{}) {
+			for _, n := range v.([]any) {
 				o.args = append(o.args, n.(string))
 			}
 		case "user":
@@ -56,12 +56,12 @@ func NewOrGet(r *reactor.Reactor, c map[string]interface{}) (*Cmd, error) {
 		case "workingdirectory":
 			o.workingDirectory = v.(string)
 		case "env":
-			for _, n := range v.([]interface{}) {
+			for _, n := range v.([]any) {
 				o.environment = append(o.environment, n.(string))
 			}
 		case "cond":
-			for _, v := range v.([]interface{}) {
-				for nk, nv := range v.(map[string]interface{}) {
+			for _, v := range v.([]any) {
+				for nk, nv := range v.(map[string]any) {
 					o.cond[nk] = regexp.MustCompile(nv.(string))
 				}
 
@@ -139,15 +139,14 @@ func (o *Cmd) findReplaceReturningSlice(msg lib.Msg, s string) []string {
 }
 
 func (o *Cmd) replaceVariablesInArgs(msg lib.Msg, args []string) {
-	for i := 0; i < len(args); i++ {
-		if strings.Contains(args[i], "${CreationTimestampMilliseconds}") {
-			args[i] = strings.Replace(args[i], "${CreationTimestampMilliseconds}",
-				strconv.FormatInt(msg.CreationTimestampMilliseconds(), 10), -1)
-		}
+	for i := range len(args) {
+		args[i] = strings.ReplaceAll(args[i], "${CreationTimestampMilliseconds}",
+			strconv.FormatInt(msg.CreationTimestampMilliseconds(), 10))
+
 		if strings.Contains(args[i], "${CreationTimestampSeconds}") {
 			var milliSecondsInSecond int64 = 1000
-			args[i] = strings.Replace(args[i], "${CreationTimestampSeconds}",
-				strconv.FormatInt(msg.CreationTimestampMilliseconds()/milliSecondsInSecond, 10), -1)
+			args[i] = strings.ReplaceAll(args[i], "${CreationTimestampSeconds}",
+				strconv.FormatInt(msg.CreationTimestampMilliseconds()/milliSecondsInSecond, 10))
 		}
 	}
 }

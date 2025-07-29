@@ -14,7 +14,7 @@ import (
 var (
 	newLine            = []byte("\n")
 	jsonReactorLogPool = &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return &JSONReactorLog{
 				w: strings.Builder{},
 			}

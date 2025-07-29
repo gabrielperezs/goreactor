@@ -10,12 +10,12 @@ import (
 )
 
 // Get will start the output plugins
-func Get(cfg interface{}) (lib.LogStream, error) {
+func Get(cfg any) (lib.LogStream, error) {
 
-	var c map[string]interface{}
+	var c map[string]any
 	var ok bool
 
-	if c, ok = cfg.(map[string]interface{}); !ok {
+	if c, ok = cfg.(map[string]any); !ok {
 		return nil, fmt.Errorf("Can't read the configuration (hint: Logstreams)")
 	}
 

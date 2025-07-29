@@ -49,7 +49,7 @@ func getUserCredential(u string) (*syscall.Credential, error) {
 	if err != nil {
 		return nil, err
 	}
-	groups := make([]uint32, 0, 0)
+	groups := make([]uint32, 0)
 	groupIdStrs, err := gottenUser.GroupIds()
 	if err != nil {
 		return nil, err
